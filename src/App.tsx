@@ -3,15 +3,29 @@ import { PreflopTrainer } from './modules/PreflopTrainer'
 import { FacingRaiseTrainer } from './modules/FacingRaiseTrainer'
 import { PotOddsTrainer } from './modules/PotOddsTrainer'
 import { PostflopTrainer } from './modules/PostflopTrainer'
+import { BetSizingTrainer } from './modules/BetSizingTrainer'
+import { RangeExplorer } from './modules/RangeExplorer'
+import { LearnView } from './modules/LearnView'
 import { ProgressView } from './modules/ProgressView'
 
-type Tab = 'preflop' | 'facingraise' | 'potodds' | 'postflop' | 'progress'
+type Tab =
+  | 'preflop'
+  | 'facingraise'
+  | 'potodds'
+  | 'postflop'
+  | 'betsizing'
+  | 'rangeexplorer'
+  | 'learn'
+  | 'progress'
 
 const TABS: { id: Tab; label: string; shortLabel: string }[] = [
   { id: 'preflop', label: 'Preflop Ranges', shortLabel: 'Preflop' },
   { id: 'facingraise', label: 'Facing a Raise', shortLabel: 'vs. Raise' },
   { id: 'potodds', label: 'Pot Odds & EV', shortLabel: 'Pot Odds' },
   { id: 'postflop', label: 'Postflop Decisions', shortLabel: 'Postflop' },
+  { id: 'betsizing', label: 'Bet Sizing', shortLabel: 'Sizing' },
+  { id: 'rangeexplorer', label: 'Range Explorer', shortLabel: 'Explorer' },
+  { id: 'learn', label: 'Learn', shortLabel: 'Learn' },
   { id: 'progress', label: 'Progress', shortLabel: 'Progress' },
 ]
 
@@ -24,7 +38,8 @@ function App() {
         <header className="text-center">
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">♠ Poker Trainer</h1>
           <p className="text-slate-400 mt-1 text-sm sm:text-base">
-            Drill preflop ranges, 3-bet decisions, pot odds, and postflop play
+            Drill ranges, bet sizing, and pot odds — plus a range explorer and
+            quick lessons
           </p>
         </header>
 
@@ -51,6 +66,9 @@ function App() {
           {tab === 'facingraise' && <FacingRaiseTrainer />}
           {tab === 'potodds' && <PotOddsTrainer />}
           {tab === 'postflop' && <PostflopTrainer />}
+          {tab === 'betsizing' && <BetSizingTrainer />}
+          {tab === 'rangeexplorer' && <RangeExplorer />}
+          {tab === 'learn' && <LearnView />}
           {tab === 'progress' && <ProgressView />}
         </main>
       </div>

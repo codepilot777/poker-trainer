@@ -1,6 +1,7 @@
 # Poker Trainer
 
-A web app for drilling four core No-Limit Hold'em skills:
+A web app for drilling five core No-Limit Hold'em skills, plus a study tool
+and a reference:
 
 - **Preflop Ranges** — shown a random starting hand and a position, decide
   whether to open-raise or fold, checked against simplified 6-max first-in
@@ -16,6 +17,26 @@ A web app for drilling four core No-Limit Hold'em skills:
   call, decide call or fold. Your equity is estimated via Monte Carlo
   simulation against an approximate villain betting range (wider for small
   bets, tighter for big bets) and compared to the pot odds required to call.
+- **Bet Sizing** — no bet in front of you: check, bet small (33% pot), or
+  bet big (75% pot)? Checked against an equity-bucket heuristic (bigger
+  edge → bigger value bet, thin edge → small bet, no edge → check) against
+  an approximate opponent continuing range.
+
+## Range Explorer
+
+A study tool (not a quiz) for comparing two ranges' equity against each
+other on a given board — pick any two ranges from the app's range library
+(preflop opens, facing-a-raise responses, postflop villain tiers), any
+street, reroll the board, and see the equity split plus both ranges'
+13x13 charts side by side. A lightweight version of what tools like
+Flopzilla or Equilab do for range-vs-range study.
+
+## Learn
+
+A **Learn** tab with short reference sections: positions and why they
+matter, how to read a range chart, the pot odds/EV formulas worked
+through, postflop bet-sizing theory, and a glossary of common terms
+(equity, range, 3-bet, c-bet, VPIP, GTO, blocker).
 
 ## Progress tracking
 
@@ -39,8 +60,8 @@ evaluation and equity estimation runs client-side.
 ## Keyboard shortcuts
 
 Each drill supports single-key answers for faster reps: R/F for raise/fold,
-F/C/R for fold/call/3-bet, C/F for call/fold, and Enter (or Space) to advance
-to the next question once answered.
+F/C/R for fold/call/3-bet, C/F for call/fold, X/S/B for check/bet small/bet
+big, and Enter (or Space) to advance to the next question once answered.
 
 ## Offline use
 

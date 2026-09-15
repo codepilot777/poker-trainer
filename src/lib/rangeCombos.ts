@@ -64,3 +64,13 @@ export function expandRangeToCombos(range: Set<string>, deadCards: Card[]): [Car
 
   return combos
 }
+
+/** True if two combos share a card (can't both be dealt in the same hand). */
+export function comboOverlaps(a: [Card, Card], b: [Card, Card]): boolean {
+  return (
+    cardKey(a[0]) === cardKey(b[0]) ||
+    cardKey(a[0]) === cardKey(b[1]) ||
+    cardKey(a[1]) === cardKey(b[0]) ||
+    cardKey(a[1]) === cardKey(b[1])
+  )
+}

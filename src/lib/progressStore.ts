@@ -1,4 +1,4 @@
-export type ModuleId = 'preflop' | 'facingraise' | 'potodds' | 'postflop'
+export type ModuleId = 'preflop' | 'facingraise' | 'potodds' | 'postflop' | 'betsizing'
 
 export interface Attempt {
   ts: number

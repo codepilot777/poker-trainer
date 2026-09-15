@@ -1,7 +1,7 @@
 import type { Card } from './cards'
 import { makeDeck, removeCards, shuffle } from './cards'
 import { compareHands } from './evaluator'
-import { expandRangeToCombos } from './rangeCombos'
+import { comboOverlaps, expandRangeToCombos } from './rangeCombos'
 
 export interface EquityResult {
   win: number
@@ -94,6 +94,67 @@ export function estimateEquityVsRange(
     tie: tie / trials,
     lose: lose / trials,
     equity: (win + tie / 2) / trials,
+  }
+}
+
+export interface RangeVsRangeResult {
+  equityA: number
+  equityB: number
+  tie: number
+  effectiveTrials: number
+}
+
+/**
+ * Monte Carlo equity of one range against another (e.g. "BTN open range" vs
+ * "BB call range") given a partial/complete board. Each trial samples a
+ * combo for range A, then a compatible (non-overlapping) combo for range B,
+ * both weighted by real combo count — a lightweight version of what tools
+ * like Flopzilla or Equilab do for range-vs-range study.
+ */
+export function estimateRangeVsRangeEquity(
+  rangeA: Set<string>,
+  rangeB: Set<string>,
+  board: Card[],
+  trials = 1200,
+): RangeVsRangeResult {
+  const combosA = expandRangeToCombos(rangeA, board)
+  const combosBAll = expandRangeToCombos(rangeB, board)
+  if (combosA.length === 0 || combosBAll.length === 0) {
+    return { equityA: 0.5, equityB: 0.5, tie: 0, effectiveTrials: 0 }
+  }
+
+  const fullDeck = makeDeck()
+  let winA = 0
+  let tie = 0
+  let winB = 0
+  let effectiveTrials = 0
+
+  for (let t = 0; t < trials; t++) {
+    const comboA = combosA[Math.floor(Math.random() * combosA.length)]
+    const validB = combosBAll.filter((b) => !comboOverlaps(comboA, b))
+    if (validB.length === 0) continue
+    const comboB = validB[Math.floor(Math.random() * validB.length)]
+
+    const remaining = removeCards(fullDeck, [...board, ...comboA, ...comboB])
+    const pool = shuffle(remaining)
+    const boardNeeded = 5 - board.length
+    const runout = pool.slice(0, boardNeeded)
+    const finalBoard = [...board, ...runout]
+
+    const cmp = compareHands([...comboA, ...finalBoard], [...comboB, ...finalBoard])
+    if (cmp > 0) winA++
+    else if (cmp === 0) tie++
+    else winB++
+    effectiveTrials++
+  }
+
+  if (effectiveTrials === 0) return { equityA: 0.5, equityB: 0.5, tie: 0, effectiveTrials: 0 }
+
+  return {
+    equityA: (winA + tie / 2) / effectiveTrials,
+    equityB: (winB + tie / 2) / effectiveTrials,
+    tie: tie / effectiveTrials,
+    effectiveTrials,
   }
 }
 

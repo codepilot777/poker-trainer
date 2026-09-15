@@ -1,18 +1,31 @@
 import { useMemo, useState } from 'react'
 import type { Card } from '../lib/cards'
 import { cardLabel, makeDeck, shuffle } from '../lib/cards'
-import { estimateEquityVsRange, evOfCall, potOdds } from '../lib/equity'
+import { estimateEquityVsRange } from '../lib/equity'
 import { CATEGORY_NAMES, evaluateBest } from '../lib/evaluator'
-import { VILLAIN_RANGES, villainRangeForBet } from '../data/villainRanges'
+import { VILLAIN_RANGES } from '../data/villainRanges'
 import { useHotkeys } from '../lib/useHotkeys'
 import { recordAttempt } from '../lib/progressStore'
 import { CardChip } from '../components/CardChip'
+
+type SizingAction = 'check' | 'betSmall' | 'betBig'
+
+const ACTION_LABEL: Record<SizingAction, string> = {
+  check: 'Check',
+  betSmall: 'Bet Small (33%)',
+  betBig: 'Bet Big (75%)',
+}
+
+const RATIONALE: Record<SizingAction, string> = {
+  betBig: 'Strong equity edge — bet big to charge worse hands and get value.',
+  betSmall: 'A thinner edge — a smaller bet keeps worse hands in / offers pot control.',
+  check: 'Not enough of an edge to bet profitably here — check instead.',
+}
 
 interface Scenario {
   hero: [Card, Card]
   board: Card[]
   pot: number
-  bet: number
 }
 
 function randomInt(min: number, max: number): number {
@@ -25,39 +38,41 @@ function newScenario(): Scenario {
   const boardSize = [3, 4, 5][randomInt(0, 2)]
   const board = deck.slice(2, 2 + boardSize)
   const pot = randomInt(30, 250)
-  const bet = Math.round(pot * (randomInt(30, 110) / 100))
-  return { hero, board, pot, bet }
+  return { hero, board, pot }
 }
 
-export function PostflopTrainer() {
+function actionForEquity(equity: number): SizingAction {
+  if (equity >= 0.65) return 'betBig'
+  if (equity >= 0.45) return 'betSmall'
+  return 'check'
+}
+
+export function BetSizingTrainer() {
   const [scenario, setScenario] = useState<Scenario>(() => newScenario())
-  const [answer, setAnswer] = useState<'call' | 'fold' | null>(null)
+  const [answer, setAnswer] = useState<SizingAction | null>(null)
   const [score, setScore] = useState({ correct: 0, total: 0 })
 
-  // Only run the (moderately expensive) Monte Carlo once per scenario.
+  // Villain is assumed to have a plausible medium continuing range — only
+  // used here to estimate hero's raw equity edge, not to model a real read.
   const analysis = useMemo(() => {
-    const tier = villainRangeForBet(scenario.bet, scenario.pot)
     const equityResult = estimateEquityVsRange(
       scenario.hero,
       scenario.board,
-      VILLAIN_RANGES[tier],
+      VILLAIN_RANGES.medium,
       800,
     )
-    const required = potOdds(scenario.bet, scenario.pot)
-    const ev = evOfCall(equityResult.equity, scenario.pot, scenario.bet)
     const category = evaluateBest([...scenario.hero, ...scenario.board])
     return {
       equity: equityResult.equity,
-      required,
-      ev,
-      tier,
-      correctAnswer: (equityResult.equity > required ? 'call' : 'fold') as 'call' | 'fold',
+      correctAnswer: actionForEquity(equityResult.equity),
       categoryName: CATEGORY_NAMES[category.category],
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scenario])
 
-  function pick(choice: 'call' | 'fold') {
+  const isCorrect = answer !== null && answer === analysis.correctAnswer
+
+  function pick(choice: SizingAction) {
     if (answer !== null) return
     const wasCorrect = choice === analysis.correctAnswer
     setAnswer(choice)
@@ -67,11 +82,11 @@ export function PostflopTrainer() {
     }))
     const boardStr = scenario.board.map(cardLabel).join(' ').toUpperCase()
     recordAttempt({
-      module: 'postflop',
-      moduleLabel: 'Postflop Decisions',
+      module: 'betsizing',
+      moduleLabel: 'Bet Sizing',
       correct: wasCorrect,
-      group: analysis.tier,
-      detail: `${analysis.categoryName} on ${boardStr} vs ${analysis.tier} range — you: ${choice}, correct: ${analysis.correctAnswer}`,
+      group: ACTION_LABEL[analysis.correctAnswer],
+      detail: `${analysis.categoryName} on ${boardStr} — you: ${ACTION_LABEL[choice]}, correct: ${ACTION_LABEL[analysis.correctAnswer]}`,
     })
   }
 
@@ -81,14 +96,22 @@ export function PostflopTrainer() {
   }
 
   useHotkeys({
-    c: () => pick('call'),
-    f: () => pick('fold'),
+    x: () => pick('check'),
+    s: () => pick('betSmall'),
+    b: () => pick('betBig'),
     enter: () => answer !== null && next(),
     ' ': () => answer !== null && next(),
   })
 
+  const smallBet = Math.round(scenario.pot * 0.33)
+  const bigBet = Math.round(scenario.pot * 0.75)
+
   return (
     <div className="flex flex-col gap-6 items-center">
+      <div className="text-slate-400 text-sm text-center max-w-sm">
+        You're first to act, no bet in front of you. Check, bet small, or bet big?
+      </div>
+
       <div className="text-slate-300">
         Score: <span className="text-white font-semibold">{score.correct}</span> / {score.total}
         {score.total > 0 && (
@@ -114,34 +137,30 @@ export function PostflopTrainer() {
         </div>
       </div>
 
-      <div className="bg-slate-800 border border-slate-700 rounded-xl px-8 py-4 flex gap-8 text-center">
-        <div>
-          <div className="text-slate-400 text-xs">Pot</div>
-          <div className="text-xl font-bold">${scenario.pot}</div>
-        </div>
-        <div>
-          <div className="text-slate-400 text-xs">Villain bets</div>
-          <div className="text-xl font-bold">${scenario.bet}</div>
-        </div>
+      <div className="bg-slate-800 border border-slate-700 rounded-xl px-8 py-4 text-center">
+        <div className="text-slate-400 text-xs">Pot</div>
+        <div className="text-xl font-bold">${scenario.pot}</div>
       </div>
-
-      <p className="text-slate-300 text-center max-w-sm">
-        Villain bets, everyone else folds to you. Call or fold?
-      </p>
 
       {answer === null ? (
         <div className="flex gap-4">
           <button
-            onClick={() => pick('call')}
-            className="px-6 py-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 active:scale-95 transition-transform font-semibold text-white"
+            onClick={() => pick('check')}
+            className="px-5 py-3 rounded-lg bg-slate-600 hover:bg-slate-500 active:scale-95 transition-transform font-semibold text-white"
           >
-            Call <span className="text-emerald-200 text-xs font-normal">(C)</span>
+            Check <span className="text-slate-300 text-xs font-normal">(X)</span>
           </button>
           <button
-            onClick={() => pick('fold')}
-            className="px-6 py-3 rounded-lg bg-rose-600 hover:bg-rose-500 active:scale-95 transition-transform font-semibold text-white"
+            onClick={() => pick('betSmall')}
+            className="px-5 py-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 active:scale-95 transition-transform font-semibold text-white"
           >
-            Fold <span className="text-rose-200 text-xs font-normal">(F)</span>
+            Bet ${smallBet} <span className="text-emerald-200 text-xs font-normal">(S)</span>
+          </button>
+          <button
+            onClick={() => pick('betBig')}
+            className="px-5 py-3 rounded-lg bg-amber-600 hover:bg-amber-500 active:scale-95 transition-transform font-semibold text-white"
+          >
+            Bet ${bigBet} <span className="text-amber-100 text-xs font-normal">(B)</span>
           </button>
         </div>
       ) : (
@@ -149,22 +168,19 @@ export function PostflopTrainer() {
           <div
             className={[
               'px-4 py-2 rounded-lg font-semibold',
-              answer === analysis.correctAnswer
-                ? 'bg-emerald-600/20 text-emerald-400'
-                : 'bg-rose-600/20 text-rose-400',
+              isCorrect ? 'bg-emerald-600/20 text-emerald-400' : 'bg-rose-600/20 text-rose-400',
             ].join(' ')}
           >
-            {answer === analysis.correctAnswer
+            {isCorrect
               ? 'Correct!'
-              : `Not quite — correct answer is ${analysis.correctAnswer.toUpperCase()}`}
+              : `Not quite — correct answer is ${ACTION_LABEL[analysis.correctAnswer]}`}
           </div>
           <div className="text-sm text-slate-400 text-center max-w-sm">
             Your hand: {analysis.categoryName}
             <br />
-            Estimated equity vs. villain's {analysis.tier} betting range:{' '}
-            {(analysis.equity * 100).toFixed(1)}% (required: {(analysis.required * 100).toFixed(1)}%)
+            Estimated equity vs. villain's continuing range: {(analysis.equity * 100).toFixed(1)}%
             <br />
-            EV of calling: ${analysis.ev.toFixed(2)}
+            {RATIONALE[analysis.correctAnswer]}
           </div>
           <button
             onClick={next}
@@ -176,10 +192,10 @@ export function PostflopTrainer() {
       )}
 
       <p className="text-xs text-slate-500 max-w-md text-center">
-        Equity is estimated via simulation against an approximate villain
-        range (wider for small bets, tighter/stronger for big bets) rather
-        than a specific read — still a simplification, but closer to a real
-        decision than assuming any two cards.
+        A simplified equity-bucket heuristic (≥65% equity → bet big, ≥45% →
+        bet small, else check) against an approximate opponent range — not a
+        solved sizing strategy, which also weighs blockers, board texture,
+        and bluff-to-value ratios.
       </p>
     </div>
   )
