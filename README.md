@@ -3,10 +3,11 @@
 A web app for drilling five core No-Limit Hold'em skills, plus a study tool
 and a reference:
 
-- **Preflop Ranges** — shown a random starting hand and a position, decide
-  whether to open-raise or fold, checked against simplified 6-max first-in
-  open-raise ranges. Reveal the full 13x13 range chart for the position at
-  any time.
+- **Preflop Ranges** — shown a random starting hand, position, and stack
+  depth (100bb deep, 40bb medium, or 20bb short/push-fold), decide whether
+  to open (raise, or shove at 20bb) or fold. Depth changes the correct
+  range: shorter stacks widen from fold equity instead of tightening.
+  Reveal the full 13x13 range chart for the position + depth at any time.
 - **Facing a Raise** — shown an opener's position and a random hand, decide
   fold, call, or 3-bet, checked against response ranges grouped into three
   tiers (UTG/MP, CO, BTN/SB) by how wide the opener's range likely is.
