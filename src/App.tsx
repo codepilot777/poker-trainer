@@ -1,12 +1,14 @@
 import { useState } from 'react'
 import { PreflopTrainer } from './modules/PreflopTrainer'
+import { FacingRaiseTrainer } from './modules/FacingRaiseTrainer'
 import { PotOddsTrainer } from './modules/PotOddsTrainer'
 import { PostflopTrainer } from './modules/PostflopTrainer'
 
-type Tab = 'preflop' | 'potodds' | 'postflop'
+type Tab = 'preflop' | 'facingraise' | 'potodds' | 'postflop'
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'preflop', label: 'Preflop Ranges' },
+  { id: 'facingraise', label: 'Facing a Raise' },
   { id: 'potodds', label: 'Pot Odds & EV' },
   { id: 'postflop', label: 'Postflop Decisions' },
 ]
@@ -19,7 +21,9 @@ function App() {
       <div className="max-w-4xl mx-auto px-4 py-8 flex flex-col gap-8">
         <header className="text-center">
           <h1 className="text-3xl font-bold tracking-tight">♠ Poker Trainer</h1>
-          <p className="text-slate-400 mt-1">Drill preflop ranges, pot odds, and postflop decisions</p>
+          <p className="text-slate-400 mt-1">
+            Drill preflop ranges, 3-bet decisions, pot odds, and postflop play
+          </p>
         </header>
 
         <nav className="flex justify-center gap-2 flex-wrap">
@@ -41,6 +45,7 @@ function App() {
 
         <main>
           {tab === 'preflop' && <PreflopTrainer />}
+          {tab === 'facingraise' && <FacingRaiseTrainer />}
           {tab === 'potodds' && <PotOddsTrainer />}
           {tab === 'postflop' && <PostflopTrainer />}
         </main>

@@ -1,11 +1,14 @@
 # Poker Trainer
 
-A web app for drilling three core No-Limit Hold'em skills:
+A web app for drilling four core No-Limit Hold'em skills:
 
 - **Preflop Ranges** — shown a random starting hand and a position, decide
   whether to open-raise or fold, checked against simplified 6-max first-in
   open-raise ranges. Reveal the full 13x13 range chart for the position at
   any time.
+- **Facing a Raise** — shown an opener's position and a random hand, decide
+  fold, call, or 3-bet, checked against response ranges grouped into three
+  tiers (UTG/MP, CO, BTN/SB) by how wide the opener's range likely is.
 - **Pot Odds & EV** — given a pot size and a bet to call, calculate the
   minimum equity needed to call, or the EV of calling given an assumed
   equity.
@@ -34,7 +37,7 @@ install icon) for an app-like experience.
 
 ## Notes on accuracy
 
-The preflop ranges and postflop villain ranges are hand-authored
+The preflop, 3-bet, and postflop villain ranges are hand-authored
 approximations meant for practicing decision-making concepts (range
 recognition, pot odds vs. equity), not a solved GTO/solver output. Postflop
 equity is estimated against a fixed range tier picked from bet size, not a

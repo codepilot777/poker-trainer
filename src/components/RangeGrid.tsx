@@ -1,24 +1,30 @@
 import { GRID_RANKS, gridCellLabel } from '../lib/handGrid'
 
 interface RangeGridProps {
-  inRange: Set<string>
+  /** Either a simple in/out range, or a per-hand class lookup for multi-category charts. */
+  inRange?: Set<string>
+  cellClass?: (label: string) => string
   highlight?: string | null
 }
 
-export function RangeGrid({ inRange, highlight }: RangeGridProps) {
+const DEFAULT_ACTIVE = 'bg-emerald-600/80 text-white'
+const DEFAULT_INACTIVE = 'bg-slate-800 text-slate-500'
+
+export function RangeGrid({ inRange, cellClass, highlight }: RangeGridProps) {
+  const classFor = cellClass ?? ((label: string) => (inRange?.has(label) ? DEFAULT_ACTIVE : DEFAULT_INACTIVE))
+
   return (
     <div className="grid grid-cols-[repeat(13,minmax(0,1fr))] gap-0.5 select-none">
       {GRID_RANKS.map((_, row) =>
         GRID_RANKS.map((_, col) => {
           const label = gridCellLabel(row, col)
-          const active = inRange.has(label)
           const isHighlighted = highlight === label
           return (
             <div
               key={label}
               className={[
                 'aspect-square flex items-center justify-center text-[10px] sm:text-xs rounded-sm font-medium',
-                active ? 'bg-emerald-600/80 text-white' : 'bg-slate-800 text-slate-500',
+                classFor(label),
                 isHighlighted ? 'ring-2 ring-yellow-400' : '',
               ].join(' ')}
             >
