@@ -4,6 +4,7 @@ import { cardLabel, makeDeck, shuffle } from '../lib/cards'
 import { estimateEquityVsRange } from '../lib/equity'
 import { CATEGORY_NAMES, evaluateBest } from '../lib/evaluator'
 import { VILLAIN_RANGES } from '../data/villainRanges'
+import { STACK_DEPTHS, STACK_DEPTH_LABELS, type StackDepth } from '../data/stackDepthRanges'
 import { useHotkeys } from '../lib/useHotkeys'
 import { recordAttempt } from '../lib/progressStore'
 import { CardChip } from '../components/CardChip'
@@ -23,14 +24,33 @@ const RATIONALE: Record<SizingAction, string> = {
   check: 'Not enough of an edge to bet profitably here — check instead.',
 }
 
+// Shallower effective stacks mean less money has gone into (and can still go
+// into) the pot, so pot size scales down with depth.
+const POT_RANGE: Record<StackDepth, [number, number]> = {
+  deep: [30, 250],
+  medium: [15, 110],
+  short: [8, 55],
+}
+
+const DEPTH_HINTS: Record<StackDepth, string> = {
+  deep: "At 100bb effective, there's plenty of stack left behind to build a big pot across multiple streets — thin value bets and pot-control lines are worth more.",
+  medium: 'At 40bb, the stack-to-pot ratio is shrinking — sizing gets simpler, with less room for a multi-street plan.',
+  short: 'At 20bb effective, the stack-to-pot ratio is tiny — sizing barely matters beyond big-or-check, since one more bet can put the rest of your stack in anyway.',
+}
+
 interface Scenario {
   hero: [Card, Card]
   board: Card[]
   pot: number
+  depth: StackDepth
 }
 
 function randomInt(min: number, max: number): number {
   return Math.floor(Math.random() * (max - min + 1)) + min
+}
+
+function randomDepth(): StackDepth {
+  return STACK_DEPTHS[Math.floor(Math.random() * STACK_DEPTHS.length)]
 }
 
 function newScenario(): Scenario {
@@ -38,8 +58,10 @@ function newScenario(): Scenario {
   const hero: [Card, Card] = [deck[0], deck[1]]
   const boardSize = [3, 4, 5][randomInt(0, 2)]
   const board = deck.slice(2, 2 + boardSize)
-  const pot = randomInt(30, 250)
-  return { hero, board, pot }
+  const depth = randomDepth()
+  const [potMin, potMax] = POT_RANGE[depth]
+  const pot = randomInt(potMin, potMax)
+  return { hero, board, pot, depth }
 }
 
 function actionForEquity(equity: number): SizingAction {
@@ -87,7 +109,7 @@ export function BetSizingTrainer() {
       moduleLabel: 'Bet Sizing',
       correct: wasCorrect,
       group: ACTION_LABEL[analysis.correctAnswer],
-      detail: `${analysis.categoryName} on ${boardStr} — you: ${ACTION_LABEL[choice]}, correct: ${ACTION_LABEL[analysis.correctAnswer]}`,
+      detail: `${analysis.categoryName} on ${boardStr}, ${STACK_DEPTH_LABELS[scenario.depth]} — you: ${ACTION_LABEL[choice]}, correct: ${ACTION_LABEL[analysis.correctAnswer]}`,
     })
   }
 
@@ -138,7 +160,8 @@ export function BetSizingTrainer() {
         </div>
       </div>
 
-      <div className="bg-slate-800 border border-slate-700 rounded-xl px-8 py-4 text-center">
+      <div className="bg-slate-800 border border-slate-700 rounded-xl px-8 py-4 flex flex-col items-center gap-1 text-center">
+        <div className="text-slate-400 text-xs">{STACK_DEPTH_LABELS[scenario.depth]} effective</div>
         <div className="text-slate-400 text-xs">Pot</div>
         <div className="text-xl font-bold">${scenario.pot}</div>
       </div>
@@ -146,7 +169,8 @@ export function BetSizingTrainer() {
       {answer === null && (
         <HintBox>
           Bet size should track your equity edge: a big edge → bet big for value, a
-          thin edge → bet small to keep worse hands in, no edge → check instead.
+          thin edge → bet small to keep worse hands in, no edge → check instead.{' '}
+          {DEPTH_HINTS[scenario.depth]}
         </HintBox>
       )}
 
@@ -203,7 +227,9 @@ export function BetSizingTrainer() {
         A simplified equity-bucket heuristic (≥65% equity → bet big, ≥45% →
         bet small, else check) against an approximate opponent range — not a
         solved sizing strategy, which also weighs blockers, board texture,
-        and bluff-to-value ratios.
+        and bluff-to-value ratios. Pot size scales down with shallower
+        effective stacks; the equity thresholds stay the same, but a low
+        stack-to-pot ratio leaves less room for sizing to matter.
       </p>
     </div>
   )
