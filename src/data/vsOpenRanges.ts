@@ -67,23 +67,30 @@ const RAW_TIERS_MEDIUM: Record<VsOpenTier, TierRanges> = {
 }
 
 /**
- * 20bb: postflop play barely exists, so a flat call is rarely correct —
- * the call range shrinks to almost nothing, while the shove range widens
- * (shoving denies equity and carries heavy fold equity against an open).
+ * 20bb: villain has already effectively shoved (20bb "open" = shove, see
+ * STACK_DEPTH_ACTION_LABEL), and hero is also 20bb effective — so calling
+ * and "3-betting"/shoving over are the same chip-EV action (both put in
+ * hero's whole stack). There's only one real boundary here: continue or
+ * fold. threeBet and call are set to the *same* computed range so either
+ * button reads as correct (see isAcceptableVsOpenAction) — the call/shove
+ * label split itself is just flavor, not a distinct equilibrium decision.
+ *
+ * That continue range was computed the same way as the 20bb shove ranges
+ * in stackDepthRanges.ts: a chip-EV best-response Monte Carlo simulation
+ * (500 trials/hand) of the BB calling range against each of those already-
+ * solved shove ranges (BB used as caller — last to act, the standard
+ * defend-the-blind benchmark), then averaged by EV across the two opener
+ * positions each tier groups together (vsEarly = UTG/MP, vsLate =
+ * BTN/SB; vsCutoff is just CO). Same simplifications as the shove ranges:
+ * flat 20bb stacks, no ante, no ICM.
  */
+function bothField(range: string): TierRanges {
+  return { threeBet: range, call: range }
+}
 const RAW_TIERS_SHORT: Record<VsOpenTier, TierRanges> = {
-  vsEarly: {
-    threeBet: 'QQ+,AKs,AKo,AJs+',
-    call: '99-TT',
-  },
-  vsCutoff: {
-    threeBet: 'TT+,AQs+,AKo,A5s,KQs',
-    call: '77-99',
-  },
-  vsLate: {
-    threeBet: '77+,A2s+,K9s+,QTs+,JTs,ATo+,KJo+,A5o+',
-    call: '22-66',
-  },
+  vsEarly: bothField('99+,AJs+,AKo'),
+  vsCutoff: bothField('77,TT+,AJs+,AJo+'),
+  vsLate: bothField('66+,A8s+,A9o+'),
 }
 
 const RAW_TIERS_BY_DEPTH: Record<ResponseDepth, Record<VsOpenTier, TierRanges>> = {
@@ -132,4 +139,22 @@ export function correctVsOpenAction(
   if (threeBet.has(handLabel)) return 'threeBet'
   if (call.has(handLabel)) return 'call'
   return 'fold'
+}
+
+/**
+ * Whether `action` is an acceptable answer, not just the single canonical
+ * one. At 20bb, call and threeBet are the same chip-EV action (see
+ * RAW_TIERS_SHORT above), so either is correct whenever the canonical
+ * answer isn't fold.
+ */
+export function isAcceptableVsOpenAction(
+  depth: ResponseDepth,
+  tier: VsOpenTier,
+  handLabel: string,
+  action: Vs3BetAction,
+): boolean {
+  const canonical = correctVsOpenAction(depth, tier, handLabel)
+  if (action === canonical) return true
+  if (depth === 'short' && canonical !== 'fold' && action !== 'fold') return true
+  return false
 }

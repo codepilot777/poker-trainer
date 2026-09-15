@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { POSITION_NAMES, type Position } from '../data/preflopRanges'
 import {
   correctVsOpenAction,
+  isAcceptableVsOpenAction,
   tierForOpenerPosition,
   RESPONSE_DEPTHS,
   RESPONSE_DEPTH_LABELS,
@@ -23,7 +24,7 @@ const TIER_HINTS: Record<VsOpenTier, string> = {
 }
 
 const DEPTH_HINTS: Partial<Record<ResponseDepth, string>> = {
-  short: "At 20bb it's mostly shove-or-fold — a flat call rarely makes sense with so little play left.",
+  short: "At 20bb, villain has already effectively shoved and you're the same depth — calling and shoving over put in the same chips, so either button is correct here. The only real decision is continue or fold.",
   medium: 'At 40bb, tighten the calling range — speculative hands lose value as implied odds shrink.',
 }
 
@@ -60,11 +61,16 @@ export function FacingRaiseTrainer() {
 
   const tier = tierForOpenerPosition(round.opener)
   const correctAnswer = correctVsOpenAction(round.depth, tier, round.hand)
-  const isCorrect = answer !== null && answer === correctAnswer
+  const isCorrect = answer !== null && isAcceptableVsOpenAction(round.depth, tier, round.hand, answer)
+  // At 20bb, call and shove are the same chip-EV action — show both as the answer.
+  const correctAnswerLabel =
+    round.depth === 'short' && correctAnswer !== 'fold'
+      ? `Call or ${aggroLabel}`
+      : actionLabel(correctAnswer)
 
   function pick(choice: Vs3BetAction) {
     if (answer !== null) return
-    const wasCorrect = choice === correctAnswer
+    const wasCorrect = isAcceptableVsOpenAction(round.depth, tier, round.hand, choice)
     setAnswer(choice)
     setScore((s) => ({
       correct: s.correct + (wasCorrect ? 1 : 0),
@@ -75,7 +81,7 @@ export function FacingRaiseTrainer() {
       moduleLabel: 'Facing a Raise',
       correct: wasCorrect,
       group: round.opener,
-      detail: `${round.hand} vs ${round.opener} open, ${RESPONSE_DEPTH_LABELS[round.depth]} — you: ${actionLabel(choice)}, correct: ${actionLabel(correctAnswer)}`,
+      detail: `${round.hand} vs ${round.opener} open, ${RESPONSE_DEPTH_LABELS[round.depth]} — you: ${actionLabel(choice)}, correct: ${correctAnswerLabel}`,
     })
   }
 
@@ -94,7 +100,10 @@ export function FacingRaiseTrainer() {
 
   function chartClass(label: string): string {
     const action = correctVsOpenAction(round.depth, tier, label)
-    if (action === 'threeBet') return 'bg-rose-600/80 text-white'
+    // At 20bb call/threeBet are the same action (see isAcceptableVsOpenAction),
+    // so there's no meaningful split to color differently — one "continue" color.
+    if (round.depth === 'short') return action === 'fold' ? 'bg-slate-800 text-slate-500' : 'bg-amber-600/80 text-white'
+    if (action === 'threeBet') return 'bg-amber-600/80 text-white'
     if (action === 'call') return 'bg-emerald-600/80 text-white'
     return 'bg-slate-800 text-slate-500'
   }
@@ -162,9 +171,7 @@ export function FacingRaiseTrainer() {
               isCorrect ? 'bg-emerald-600/20 text-emerald-400' : 'bg-rose-600/20 text-rose-400',
             ].join(' ')}
           >
-            {isCorrect
-              ? 'Correct!'
-              : `Not quite — correct answer is ${actionLabel(correctAnswer)}`}
+            {isCorrect ? 'Correct!' : `Not quite — correct answer is ${correctAnswerLabel}`}
           </div>
           <button
             onClick={next}
@@ -186,12 +193,20 @@ export function FacingRaiseTrainer() {
         <div className="w-full max-w-xl flex flex-col items-center gap-2 animate-fade-in">
           <RangeGrid cellClass={chartClass} highlight={round.hand} />
           <div className="flex gap-4 text-xs text-slate-400">
-            <span className="flex items-center gap-1">
-              <span className="inline-block w-3 h-3 rounded-sm bg-amber-600/80" /> {aggroLabel}
-            </span>
-            <span className="flex items-center gap-1">
-              <span className="inline-block w-3 h-3 rounded-sm bg-emerald-600/80" /> Call
-            </span>
+            {round.depth === 'short' ? (
+              <span className="flex items-center gap-1">
+                <span className="inline-block w-3 h-3 rounded-sm bg-amber-600/80" /> Call or Shove
+              </span>
+            ) : (
+              <>
+                <span className="flex items-center gap-1">
+                  <span className="inline-block w-3 h-3 rounded-sm bg-amber-600/80" /> {aggroLabel}
+                </span>
+                <span className="flex items-center gap-1">
+                  <span className="inline-block w-3 h-3 rounded-sm bg-emerald-600/80" /> Call
+                </span>
+              </>
+            )}
             <span className="flex items-center gap-1">
               <span className="inline-block w-3 h-3 rounded-sm bg-slate-800 border border-slate-600" />{' '}
               Fold
@@ -202,10 +217,12 @@ export function FacingRaiseTrainer() {
 
       <p className="text-xs text-slate-500 max-w-md text-center">
         Response ranges are grouped into three tiers by opener position (UTG/MP,
-        CO, BTN/SB) and by stack depth, rather than every exact matchup —
-        simplified for practicing the fold/call/{aggroLabel.toLowerCase()}{' '}
-        decision, not a solved GTO output. At 20bb, calling barely exists —
-        it's mostly shove or fold.
+        CO, BTN/SB) and by stack depth, rather than every exact matchup. The
+        100bb/40bb ranges are hand-authored approximations; the 20bb
+        continue/fold boundary is a computed chip-EV Nash best-response (BB
+        vs. each shove range) — Call and Shove are graded as equally correct
+        there since they're the same all-in action, not two different
+        decisions.
       </p>
     </div>
   )
