@@ -19,8 +19,8 @@ function newBoard(street: Street): Card[] {
 }
 
 export function RangeExplorer() {
-  const [rangeAId, setRangeAId] = useState(RANGE_LIBRARY[3].id) // BTN Open
-  const [rangeBId, setRangeBId] = useState(RANGE_LIBRARY[10].id) // vs BTN/SB Call Range
+  const [rangeAId, setRangeAId] = useState('open-btn')
+  const [rangeBId, setRangeBId] = useState('vs-btn-call')
   const [depth, setDepth] = useState<StackDepth>('deep')
   const [street, setStreet] = useState<Street>('flop')
   const [board, setBoard] = useState<Card[]>(() => newBoard('flop'))

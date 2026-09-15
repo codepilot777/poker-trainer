@@ -1,5 +1,5 @@
 import { POSITIONS, type Position } from './preflopRanges'
-import { VS_OPEN_RANGES_BY_DEPTH, type VsOpenTier } from './vsOpenRanges'
+import { VS_OPEN_RANGES_BY_DEPTH } from './vsOpenRanges'
 import { VILLAIN_RANGES } from './villainRanges'
 import { STACK_DEPTH_RANGES, type StackDepth } from './stackDepthRanges'
 
@@ -28,13 +28,13 @@ function openRangeByDepth(position: Position): Record<StackDepth, Set<string>> {
 }
 
 function vsOpenRangeByDepth(
-  tier: VsOpenTier,
+  position: Position,
   kind: 'threeBet' | 'call',
 ): Record<StackDepth, Set<string>> {
   return {
-    deep: VS_OPEN_RANGES_BY_DEPTH.deep[tier][kind],
-    medium: VS_OPEN_RANGES_BY_DEPTH.medium[tier][kind],
-    short: VS_OPEN_RANGES_BY_DEPTH.short[tier][kind],
+    deep: VS_OPEN_RANGES_BY_DEPTH.deep[position][kind],
+    medium: VS_OPEN_RANGES_BY_DEPTH.medium[position][kind],
+    short: VS_OPEN_RANGES_BY_DEPTH.short[position][kind],
   }
 }
 
@@ -52,12 +52,18 @@ export const RANGE_LIBRARY: RangeEntry[] = [
     label: OPEN_LABELS[pos],
     range: openRangeByDepth(pos),
   })),
-  { id: 'vs-early-3bet', label: 'vs UTG/MP 3-Bet Range', range: vsOpenRangeByDepth('vsEarly', 'threeBet') },
-  { id: 'vs-early-call', label: 'vs UTG/MP Call Range', range: vsOpenRangeByDepth('vsEarly', 'call') },
-  { id: 'vs-co-3bet', label: 'vs CO 3-Bet Range', range: vsOpenRangeByDepth('vsCutoff', 'threeBet') },
-  { id: 'vs-co-call', label: 'vs CO Call Range', range: vsOpenRangeByDepth('vsCutoff', 'call') },
-  { id: 'vs-late-3bet', label: 'vs BTN/SB 3-Bet Range', range: vsOpenRangeByDepth('vsLate', 'threeBet') },
-  { id: 'vs-late-call', label: 'vs BTN/SB Call Range', range: vsOpenRangeByDepth('vsLate', 'call') },
+  ...POSITIONS.flatMap((pos) => [
+    {
+      id: `vs-${pos.toLowerCase()}-3bet`,
+      label: `vs ${pos} 3-Bet Range`,
+      range: vsOpenRangeByDepth(pos, 'threeBet'),
+    },
+    {
+      id: `vs-${pos.toLowerCase()}-call`,
+      label: `vs ${pos} Call Range`,
+      range: vsOpenRangeByDepth(pos, 'call'),
+    },
+  ]),
   { id: 'villain-wide', label: 'Wide Betting Range', range: VILLAIN_RANGES.wide },
   { id: 'villain-medium', label: 'Medium Betting Range', range: VILLAIN_RANGES.medium },
   { id: 'villain-tight', label: 'Tight Betting Range', range: VILLAIN_RANGES.tight },

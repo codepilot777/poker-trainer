@@ -3,13 +3,11 @@ import { POSITION_NAMES, type Position } from '../data/preflopRanges'
 import {
   correctVsOpenAction,
   isAcceptableVsOpenAction,
-  tierForOpenerPosition,
   RESPONSE_DEPTHS,
   RESPONSE_DEPTH_LABELS,
   RESPONSE_AGGRO_LABEL,
   type Vs3BetAction,
   type ResponseDepth,
-  type VsOpenTier,
 } from '../data/vsOpenRanges'
 import { randomHandLabelWeighted } from '../lib/handGrid'
 import { RangeGrid } from '../components/RangeGrid'
@@ -17,10 +15,12 @@ import { useHotkeys } from '../lib/useHotkeys'
 import { recordAttempt } from '../lib/progressStore'
 import { HintBox } from '../components/HintBox'
 
-const TIER_HINTS: Record<VsOpenTier, string> = {
-  vsEarly: "An early-position opener has a tight, strong range — you need a genuine hand to continue.",
-  vsCutoff: 'A CO open is moderately wide — you can defend a bit looser than vs. an early open.',
-  vsLate: "A BTN/SB open can be very wide — you can continue with more hands, including some 3-bet bluffs.",
+const OPENER_HINTS: Record<Position, string> = {
+  UTG: 'UTG opens with the tightest range at the table — you need a genuine hand to continue.',
+  MP: 'MP opens a little wider than UTG — you can continue with slightly more.',
+  CO: 'A CO open is moderately wide — you can defend a bit looser than vs. an early open.',
+  BTN: 'A BTN open can be very wide — you can continue with more hands, including some 3-bet bluffs.',
+  SB: "SB opens tighter than BTN despite being later — SB is out of position for the rest of the hand, so continue a bit tighter than vs. BTN.",
 }
 
 const DEPTH_HINTS: Partial<Record<ResponseDepth, string>> = {
@@ -59,9 +59,8 @@ export function FacingRaiseTrainer() {
   const actionLabel = (a: Vs3BetAction) =>
     a === 'threeBet' ? aggroLabel : a === 'call' ? 'Call' : 'Fold'
 
-  const tier = tierForOpenerPosition(round.opener)
-  const correctAnswer = correctVsOpenAction(round.depth, tier, round.hand)
-  const isCorrect = answer !== null && isAcceptableVsOpenAction(round.depth, tier, round.hand, answer)
+  const correctAnswer = correctVsOpenAction(round.depth, round.opener, round.hand)
+  const isCorrect = answer !== null && isAcceptableVsOpenAction(round.depth, round.opener, round.hand, answer)
   // At 20bb, call and shove are the same chip-EV action — show both as the answer.
   const correctAnswerLabel =
     round.depth === 'short' && correctAnswer !== 'fold'
@@ -70,7 +69,7 @@ export function FacingRaiseTrainer() {
 
   function pick(choice: Vs3BetAction) {
     if (answer !== null) return
-    const wasCorrect = isAcceptableVsOpenAction(round.depth, tier, round.hand, choice)
+    const wasCorrect = isAcceptableVsOpenAction(round.depth, round.opener, round.hand, choice)
     setAnswer(choice)
     setScore((s) => ({
       correct: s.correct + (wasCorrect ? 1 : 0),
@@ -99,7 +98,7 @@ export function FacingRaiseTrainer() {
   })
 
   function chartClass(label: string): string {
-    const action = correctVsOpenAction(round.depth, tier, label)
+    const action = correctVsOpenAction(round.depth, round.opener, label)
     // At 20bb call/threeBet are the same action (see isAcceptableVsOpenAction),
     // so there's no meaningful split to color differently — one "continue" color.
     if (round.depth === 'short') return action === 'fold' ? 'bg-slate-800 text-slate-500' : 'bg-amber-600/80 text-white'
@@ -137,7 +136,7 @@ export function FacingRaiseTrainer() {
 
       {answer === null && (
         <HintBox>
-          {TIER_HINTS[tier]}
+          {OPENER_HINTS[round.opener]}
           {DEPTH_HINTS[round.depth] ? ` ${DEPTH_HINTS[round.depth]}` : ''}
         </HintBox>
       )}
@@ -216,13 +215,12 @@ export function FacingRaiseTrainer() {
       )}
 
       <p className="text-xs text-slate-500 max-w-md text-center">
-        Response ranges are grouped into three tiers by opener position (UTG/MP,
-        CO, BTN/SB) and by stack depth, rather than every exact matchup. The
-        100bb/40bb ranges are hand-authored approximations; the 20bb
-        continue/fold boundary is a computed chip-EV Nash best-response (BB
-        vs. each shove range) — Call and Shove are graded as equally correct
-        there since they're the same all-in action, not two different
-        decisions.
+        Response ranges are keyed to the opener's exact position and to
+        stack depth. The 100bb/40bb ranges are hand-authored
+        approximations; the 20bb continue/fold boundary is a computed
+        chip-EV Nash best-response (BB vs. each shove range) — Call and
+        Shove are graded as equally correct there since they're the same
+        all-in action, not two different decisions.
       </p>
     </div>
   )
