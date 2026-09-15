@@ -4,6 +4,7 @@ import { PREFLOP_OPEN_RANGES } from '../data/preflopRanges'
 import { randomHandLabelWeighted } from '../lib/handGrid'
 import { RangeGrid } from '../components/RangeGrid'
 import { useHotkeys } from '../lib/useHotkeys'
+import { recordAttempt } from '../lib/progressStore'
 
 function randomPosition(): Position {
   return POSITIONS[Math.floor(Math.random() * POSITIONS.length)]
@@ -29,11 +30,19 @@ export function PreflopTrainer() {
 
   function pick(choice: 'raise' | 'fold') {
     if (answer !== null) return
+    const wasCorrect = choice === correctAnswer
     setAnswer(choice)
     setScore((s) => ({
-      correct: s.correct + (choice === correctAnswer ? 1 : 0),
+      correct: s.correct + (wasCorrect ? 1 : 0),
       total: s.total + 1,
     }))
+    recordAttempt({
+      module: 'preflop',
+      moduleLabel: 'Preflop Ranges',
+      correct: wasCorrect,
+      group: round.position,
+      detail: `${round.hand} at ${round.position} — you: ${choice}, correct: ${correctAnswer}`,
+    })
   }
 
   function next() {

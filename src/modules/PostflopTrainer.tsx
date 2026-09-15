@@ -5,6 +5,7 @@ import { estimateEquityVsRange, evOfCall, potOdds } from '../lib/equity'
 import { CATEGORY_NAMES, evaluateBest } from '../lib/evaluator'
 import { VILLAIN_RANGES, villainRangeForBet } from '../data/villainRanges'
 import { useHotkeys } from '../lib/useHotkeys'
+import { recordAttempt } from '../lib/progressStore'
 
 interface Scenario {
   hero: [Card, Card]
@@ -75,11 +76,20 @@ export function PostflopTrainer() {
 
   function pick(choice: 'call' | 'fold') {
     if (answer !== null) return
+    const wasCorrect = choice === analysis.correctAnswer
     setAnswer(choice)
     setScore((s) => ({
-      correct: s.correct + (choice === analysis.correctAnswer ? 1 : 0),
+      correct: s.correct + (wasCorrect ? 1 : 0),
       total: s.total + 1,
     }))
+    const boardStr = scenario.board.map(cardLabel).join(' ').toUpperCase()
+    recordAttempt({
+      module: 'postflop',
+      moduleLabel: 'Postflop Decisions',
+      correct: wasCorrect,
+      group: analysis.tier,
+      detail: `${analysis.categoryName} on ${boardStr} vs ${analysis.tier} range — you: ${choice}, correct: ${analysis.correctAnswer}`,
+    })
   }
 
   function next() {

@@ -3,14 +3,16 @@ import { PreflopTrainer } from './modules/PreflopTrainer'
 import { FacingRaiseTrainer } from './modules/FacingRaiseTrainer'
 import { PotOddsTrainer } from './modules/PotOddsTrainer'
 import { PostflopTrainer } from './modules/PostflopTrainer'
+import { ProgressView } from './modules/ProgressView'
 
-type Tab = 'preflop' | 'facingraise' | 'potodds' | 'postflop'
+type Tab = 'preflop' | 'facingraise' | 'potodds' | 'postflop' | 'progress'
 
 const TABS: { id: Tab; label: string; shortLabel: string }[] = [
   { id: 'preflop', label: 'Preflop Ranges', shortLabel: 'Preflop' },
   { id: 'facingraise', label: 'Facing a Raise', shortLabel: 'vs. Raise' },
   { id: 'potodds', label: 'Pot Odds & EV', shortLabel: 'Pot Odds' },
   { id: 'postflop', label: 'Postflop Decisions', shortLabel: 'Postflop' },
+  { id: 'progress', label: 'Progress', shortLabel: 'Progress' },
 ]
 
 function App() {
@@ -49,6 +51,7 @@ function App() {
           {tab === 'facingraise' && <FacingRaiseTrainer />}
           {tab === 'potodds' && <PotOddsTrainer />}
           {tab === 'postflop' && <PostflopTrainer />}
+          {tab === 'progress' && <ProgressView />}
         </main>
       </div>
     </div>

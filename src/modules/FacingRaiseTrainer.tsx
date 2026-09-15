@@ -4,6 +4,7 @@ import { correctVsOpenAction, tierForOpenerPosition, type Vs3BetAction } from '.
 import { randomHandLabelWeighted } from '../lib/handGrid'
 import { RangeGrid } from '../components/RangeGrid'
 import { useHotkeys } from '../lib/useHotkeys'
+import { recordAttempt } from '../lib/progressStore'
 
 const ACTION_LABEL: Record<Vs3BetAction, string> = {
   fold: 'Fold',
@@ -39,11 +40,19 @@ export function FacingRaiseTrainer() {
 
   function pick(choice: Vs3BetAction) {
     if (answer !== null) return
+    const wasCorrect = choice === correctAnswer
     setAnswer(choice)
     setScore((s) => ({
-      correct: s.correct + (choice === correctAnswer ? 1 : 0),
+      correct: s.correct + (wasCorrect ? 1 : 0),
       total: s.total + 1,
     }))
+    recordAttempt({
+      module: 'facingraise',
+      moduleLabel: 'Facing a Raise',
+      correct: wasCorrect,
+      group: round.opener,
+      detail: `${round.hand} vs ${round.opener} open — you: ${ACTION_LABEL[choice]}, correct: ${ACTION_LABEL[correctAnswer]}`,
+    })
   }
 
   function next() {

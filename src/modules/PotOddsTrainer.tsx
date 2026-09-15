@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { evOfCall, potOdds } from '../lib/equity'
+import { recordAttempt } from '../lib/progressStore'
+import { useHotkeys } from '../lib/useHotkeys'
 
 type QuestionType = 'potOdds' | 'ev'
 
@@ -49,6 +51,16 @@ export function PotOddsTrainer() {
     const correct = Math.abs(userVal - target) <= tolerance
     setFeedback({ correct, correctValue: target })
     setScore((s) => ({ correct: s.correct + (correct ? 1 : 0), total: s.total + 1 }))
+    recordAttempt({
+      module: 'potodds',
+      moduleLabel: 'Pot Odds & EV',
+      correct,
+      group: q.type === 'potOdds' ? 'Pot Odds %' : 'EV $',
+      detail:
+        q.type === 'potOdds'
+          ? `Pot odds — pot $${q.pot}, bet $${q.bet} — you: ${userVal}%, correct: ${target.toFixed(1)}%`
+          : `EV — pot $${q.pot}, bet $${q.bet}, equity ${q.equityPct}% — you: $${userVal}, correct: $${target.toFixed(2)}`,
+    })
   }
 
   function next() {
@@ -61,6 +73,14 @@ export function PotOddsTrainer() {
     if (feedback === null) submit()
     else next()
   }
+
+  // The input disables itself after an answer, which moves focus away from it
+  // (disabled elements can't hold focus) — this global handler picks up Enter/Space
+  // to advance once that happens, since the input's own onKeyDown no longer fires.
+  useHotkeys({
+    enter: () => feedback !== null && next(),
+    ' ': () => feedback !== null && next(),
+  })
 
   return (
     <div className="flex flex-col gap-6 items-center">

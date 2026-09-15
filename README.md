@@ -17,6 +17,14 @@ A web app for drilling four core No-Limit Hold'em skills:
   simulation against an approximate villain betting range (wider for small
   bets, tighter for big bets) and compared to the pot odds required to call.
 
+## Progress tracking
+
+A **Progress** tab tracks every answer you give (saved to `localStorage`, no
+account or server) and shows overall and per-drill accuracy, a breakdown by
+position/tier so you can see where you're weakest, and a running list of
+your most recent mistakes. It's per-browser only — clearing site data or
+switching devices resets it.
+
 ## Development
 
 ```bash
