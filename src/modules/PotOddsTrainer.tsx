@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { evOfCall, potOdds } from '../lib/equity'
 import { recordAttempt } from '../lib/progressStore'
 import { useHotkeys } from '../lib/useHotkeys'
+import { HintBox } from '../components/HintBox'
 
 type QuestionType = 'potOdds' | 'ev'
 
@@ -116,6 +117,14 @@ export function PotOddsTrainer() {
           <p className="text-slate-300">What is the EV ($) of calling?</p>
         )}
       </div>
+
+      {feedback === null && (
+        <HintBox>
+          {q.type === 'potOdds'
+            ? 'Required equity = bet / (pot + bet). Divide the bet by the total pot after you call.'
+            : 'EV of calling = equity × (pot + bet) − (1 − equity) × bet. A negative EV means the call loses money on average even though it can still win the hand.'}
+        </HintBox>
+      )}
 
       <div className="flex gap-3 items-center">
         <input

@@ -12,6 +12,20 @@ import { randomHandLabelWeighted } from '../lib/handGrid'
 import { RangeGrid } from '../components/RangeGrid'
 import { useHotkeys } from '../lib/useHotkeys'
 import { recordAttempt } from '../lib/progressStore'
+import { HintBox } from '../components/HintBox'
+
+const POSITION_HINTS: Record<Position, string> = {
+  UTG: 'Earliest position — 5 players could still act behind you, so play the tightest range.',
+  MP: 'Slightly later than UTG — you can open a bit wider.',
+  CO: 'One seat before the button — only 2 players left to act, open noticeably wider.',
+  BTN: 'Best seat at the table — you act last every postflop street, so this is the widest range.',
+  SB: "You'll be out of position postflop against everyone except the BB — wide, but not as wide as BTN.",
+}
+
+const DEPTH_HINTS: Partial<Record<StackDepth, string>> = {
+  short: 'At 20bb postflop play barely exists — favor a wide shove over a standard open.',
+  medium: 'At 40bb, drop the most speculative small suited/connector hands — implied odds shrink.',
+}
 
 function randomPosition(): Position {
   return POSITIONS[Math.floor(Math.random() * POSITIONS.length)]
@@ -98,6 +112,13 @@ export function PreflopTrainer() {
           {round.hand}
         </div>
       </div>
+
+      {answer === null && (
+        <HintBox>
+          {POSITION_HINTS[round.position]}
+          {DEPTH_HINTS[round.depth] ? ` ${DEPTH_HINTS[round.depth]}` : ''}
+        </HintBox>
+      )}
 
       {answer === null ? (
         <div className="flex gap-4">

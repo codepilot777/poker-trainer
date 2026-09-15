@@ -7,6 +7,7 @@ import { VILLAIN_RANGES } from '../data/villainRanges'
 import { useHotkeys } from '../lib/useHotkeys'
 import { recordAttempt } from '../lib/progressStore'
 import { CardChip } from '../components/CardChip'
+import { HintBox } from '../components/HintBox'
 
 type SizingAction = 'check' | 'betSmall' | 'betBig'
 
@@ -141,6 +142,13 @@ export function BetSizingTrainer() {
         <div className="text-slate-400 text-xs">Pot</div>
         <div className="text-xl font-bold">${scenario.pot}</div>
       </div>
+
+      {answer === null && (
+        <HintBox>
+          Bet size should track your equity edge: a big edge → bet big for value, a
+          thin edge → bet small to keep worse hands in, no edge → check instead.
+        </HintBox>
+      )}
 
       {answer === null ? (
         <div className="flex gap-4">

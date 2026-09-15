@@ -7,6 +7,7 @@ import { VILLAIN_RANGES, villainRangeForBet } from '../data/villainRanges'
 import { useHotkeys } from '../lib/useHotkeys'
 import { recordAttempt } from '../lib/progressStore'
 import { CardChip } from '../components/CardChip'
+import { HintBox } from '../components/HintBox'
 
 interface Scenario {
   hero: [Card, Card]
@@ -128,6 +129,14 @@ export function PostflopTrainer() {
       <p className="text-slate-300 text-center max-w-sm">
         Villain bets, everyone else folds to you. Call or fold?
       </p>
+
+      {answer === null && (
+        <HintBox>
+          You need {(analysis.required * 100).toFixed(1)}% equity to call profitably here
+          (bet / (pot + bet)). Compare that to how far ahead your hand is — call only if
+          your real equity beats it.
+        </HintBox>
+      )}
 
       {answer === null ? (
         <div className="flex gap-4">

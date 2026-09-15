@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { SettingsContext, readHintsEnabled, writeHintsEnabled } from './lib/settings'
 import { PreflopTrainer } from './modules/PreflopTrainer'
 import { FacingRaiseTrainer } from './modules/FacingRaiseTrainer'
 import { PotOddsTrainer } from './modules/PotOddsTrainer'
@@ -34,11 +35,30 @@ const TOOL_TABS: { id: Tab; label: string; icon: string }[] = [
 
 function App() {
   const [tab, setTab] = useState<Tab>('preflop')
+  const [hintsEnabled, setHintsEnabledState] = useState(() => readHintsEnabled())
+
+  function setHintsEnabled(v: boolean) {
+    setHintsEnabledState(v)
+    writeHintsEnabled(v)
+  }
 
   return (
+    <SettingsContext.Provider value={{ hintsEnabled, setHintsEnabled }}>
     <div className="min-h-screen bg-[#0f1115] text-slate-100">
       <div className="max-w-4xl mx-auto px-4 py-5 sm:py-8 flex flex-col gap-5 sm:gap-8">
-        <header className="text-center">
+        <header className="text-center relative">
+          <button
+            onClick={() => setHintsEnabled(!hintsEnabled)}
+            className={[
+              'absolute right-0 top-0 flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium border transition-all active:scale-95',
+              hintsEnabled
+                ? 'bg-sky-500/15 text-sky-300 border-sky-500/40'
+                : 'bg-transparent text-slate-500 border-slate-700 hover:text-slate-300',
+            ].join(' ')}
+            title="Toggle in-practice hints"
+          >
+            💡 Hints {hintsEnabled ? 'On' : 'Off'}
+          </button>
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">♠ Poker Trainer</h1>
           <p className="text-slate-400 mt-1 text-sm sm:text-base">
             Drill ranges, bet sizing, and pot odds — plus a range explorer and
@@ -99,6 +119,7 @@ function App() {
         </main>
       </div>
     </div>
+    </SettingsContext.Provider>
   )
 }
 

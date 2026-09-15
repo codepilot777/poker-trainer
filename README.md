@@ -8,9 +8,10 @@ and a reference:
   to open (raise, or shove at 20bb) or fold. Depth changes the correct
   range: shorter stacks widen from fold equity instead of tightening.
   Reveal the full 13x13 range chart for the position + depth at any time.
-- **Facing a Raise** — shown an opener's position and a random hand, decide
-  fold, call, or 3-bet, checked against response ranges grouped into three
-  tiers (UTG/MP, CO, BTN/SB) by how wide the opener's range likely is.
+- **Facing a Raise** — shown an opener's position, stack depth, and a
+  random hand, decide fold, call, or 3-bet (shove at 20bb), checked
+  against response ranges grouped by opener tier (UTG/MP, CO, BTN/SB) and
+  by depth — at 20bb a flat call barely exists, it's mostly shove-or-fold.
 - **Pot Odds & EV** — given a pot size and a bet to call, calculate the
   minimum equity needed to call, or the EV of calling given an assumed
   equity.
@@ -32,11 +33,17 @@ street, reroll the board, and see the equity split plus both ranges'
 13x13 charts side by side. A lightweight version of what tools like
 Flopzilla or Equilab do for range-vs-range study.
 
-## Learn
+## In-practice hints
 
-A **Learn** tab with short reference sections: positions and why they
-matter, how to read a range chart, the pot odds/EV formulas worked
-through, postflop bet-sizing theory, and a glossary of common terms
+Every drill can show a contextual, non-spoiling hint above the answer
+buttons (💡) — the underlying concept for the current scenario (why this
+position/depth/tier matters, the pot odds formula, the bet-sizing
+heuristic) without giving away the actual answer. Toggle it globally with
+the "Hints" button in the top-right corner; the setting persists in
+`localStorage`. For a deeper dive beyond in-the-moment hints, there's also
+a standalone **Learn** tab with short reference sections: positions and
+why they matter, how to read a range chart, the pot odds/EV formulas
+worked through, postflop bet-sizing theory, and a glossary of common terms
 (equity, range, 3-bet, c-bet, VPIP, GTO, blocker).
 
 ## Progress tracking
