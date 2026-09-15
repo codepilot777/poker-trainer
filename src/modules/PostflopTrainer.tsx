@@ -1,14 +1,18 @@
 import { useMemo, useState } from 'react'
 import type { Card } from '../lib/cards'
 import { cardLabel, makeDeck, shuffle } from '../lib/cards'
-import { estimateEquityVsRange, evOfCall, potOdds } from '../lib/equity'
+import { estimateEquityVsRange, estimateEquityVsMultipleRanges, evOfCall, potOdds } from '../lib/equity'
 import { CATEGORY_NAMES, evaluateBest } from '../lib/evaluator'
-import { VILLAIN_RANGES, villainRangeForBet } from '../data/villainRanges'
+import { VILLAIN_RANGES, VILLAIN_RANGES_3BET, villainRangeForBet } from '../data/villainRanges'
 import { STACK_DEPTHS, STACK_DEPTH_LABELS, type StackDepth } from '../data/stackDepthRanges'
 import { useHotkeys } from '../lib/useHotkeys'
 import { recordAttempt } from '../lib/progressStore'
+import { useScenarioMix } from '../lib/settings'
 import { CardChip } from '../components/CardChip'
 import { HintBox } from '../components/HintBox'
+import { ScenarioMixToggle } from '../components/ScenarioMixToggle'
+
+type PotType = 'single' | 'threeBet' | 'multiway'
 
 interface Scenario {
   hero: [Card, Card]
@@ -16,6 +20,7 @@ interface Scenario {
   pot: number
   bet: number
   depth: StackDepth
+  potType: PotType
 }
 
 // Shallower effective stacks mean less money has gone into (and can still go
@@ -26,6 +31,22 @@ const POT_RANGE: Record<StackDepth, [number, number]> = {
   deep: [30, 250],
   medium: [15, 110],
   short: [8, 55],
+}
+
+// 3-bet pots start with more preflop money in; multiway pots tend to build
+// bigger too since more players contributed preflop.
+const POT_TYPE_MULTIPLIER: Record<PotType, number> = { single: 1, threeBet: 1.8, multiway: 1.3 }
+
+const POT_TYPE_LABELS: Record<PotType, string> = {
+  single: 'Single-raised pot',
+  threeBet: '3-bet pot',
+  multiway: 'Multiway (3-handed)',
+}
+
+const POT_TYPE_PROMPT: Record<PotType, string> = {
+  single: 'Villain bets, everyone else folds to you. Call or fold?',
+  threeBet: 'Preflop, you 3-bet and villain called. Postflop, villain bets into you. Call or fold?',
+  multiway: 'Three of you saw the flop. Villain bets, and the third player is still to act behind you. Call or fold?',
 }
 
 const DEPTH_HINTS: Record<StackDepth, string> = {
@@ -42,32 +63,47 @@ function randomDepth(): StackDepth {
   return STACK_DEPTHS[Math.floor(Math.random() * STACK_DEPTHS.length)]
 }
 
-function newScenario(): Scenario {
+function randomPotType(include3BetPots: boolean, includeMultiway: boolean): PotType {
+  const options: PotType[] = ['single']
+  if (include3BetPots) options.push('threeBet')
+  if (includeMultiway) options.push('multiway')
+  return options[randomInt(0, options.length - 1)]
+}
+
+/** Villain range(s) to estimate hero's equity against for this scenario. */
+function villainRangesForScenario(potType: PotType, tier: 'wide' | 'medium' | 'tight'): Set<string>[] {
+  if (potType === 'threeBet') return [VILLAIN_RANGES_3BET[tier]]
+  if (potType === 'multiway') return [VILLAIN_RANGES[tier], VILLAIN_RANGES[tier]]
+  return [VILLAIN_RANGES[tier]]
+}
+
+function newScenario(include3BetPots: boolean, includeMultiway: boolean): Scenario {
   const deck = shuffle(makeDeck())
   const hero: [Card, Card] = [deck[0], deck[1]]
   const boardSize = [3, 4, 5][randomInt(0, 2)]
   const board = deck.slice(2, 2 + boardSize)
   const depth = randomDepth()
+  const potType = randomPotType(include3BetPots, includeMultiway)
   const [potMin, potMax] = POT_RANGE[depth]
-  const pot = randomInt(potMin, potMax)
+  const pot = Math.round(randomInt(potMin, potMax) * POT_TYPE_MULTIPLIER[potType])
   const bet = Math.round(pot * (randomInt(30, 110) / 100))
-  return { hero, board, pot, bet, depth }
+  return { hero, board, pot, bet, depth, potType }
 }
 
 export function PostflopTrainer() {
-  const [scenario, setScenario] = useState<Scenario>(() => newScenario())
+  const { include3BetPots, includeMultiway } = useScenarioMix()
+  const [scenario, setScenario] = useState<Scenario>(() => newScenario(include3BetPots, includeMultiway))
   const [answer, setAnswer] = useState<'call' | 'fold' | null>(null)
   const [score, setScore] = useState({ correct: 0, total: 0 })
 
   // Only run the (moderately expensive) Monte Carlo once per scenario.
   const analysis = useMemo(() => {
     const tier = villainRangeForBet(scenario.bet, scenario.pot)
-    const equityResult = estimateEquityVsRange(
-      scenario.hero,
-      scenario.board,
-      VILLAIN_RANGES[tier],
-      800,
-    )
+    const ranges = villainRangesForScenario(scenario.potType, tier)
+    const equityResult =
+      ranges.length > 1
+        ? estimateEquityVsMultipleRanges(scenario.hero, scenario.board, ranges, 700)
+        : estimateEquityVsRange(scenario.hero, scenario.board, ranges[0], 800)
     const required = potOdds(scenario.bet, scenario.pot)
     const ev = evOfCall(equityResult.equity, scenario.pot, scenario.bet)
     const category = evaluateBest([...scenario.hero, ...scenario.board])
@@ -96,12 +132,12 @@ export function PostflopTrainer() {
       moduleLabel: 'Postflop Decisions',
       correct: wasCorrect,
       group: analysis.tier,
-      detail: `${analysis.categoryName} on ${boardStr} vs ${analysis.tier} range, ${STACK_DEPTH_LABELS[scenario.depth]} — you: ${choice}, correct: ${analysis.correctAnswer}`,
+      detail: `${analysis.categoryName} on ${boardStr} vs ${analysis.tier} range, ${STACK_DEPTH_LABELS[scenario.depth]}, ${POT_TYPE_LABELS[scenario.potType]} — you: ${choice}, correct: ${analysis.correctAnswer}`,
     })
   }
 
   function next() {
-    setScenario(newScenario())
+    setScenario(newScenario(include3BetPots, includeMultiway))
     setAnswer(null)
   }
 
@@ -120,6 +156,8 @@ export function PostflopTrainer() {
           <span className="text-slate-500"> ({Math.round((score.correct / score.total) * 100)}%)</span>
         )}
       </div>
+
+      <ScenarioMixToggle />
 
       <div className="flex flex-col items-center gap-2">
         <div className="text-sm text-slate-400">Board</div>
@@ -140,7 +178,9 @@ export function PostflopTrainer() {
       </div>
 
       <div className="bg-slate-800 border border-slate-700 rounded-xl px-8 py-4 flex flex-col items-center gap-2 text-center">
-        <div className="text-slate-400 text-xs">{STACK_DEPTH_LABELS[scenario.depth]} effective</div>
+        <div className="text-slate-400 text-xs">
+          {STACK_DEPTH_LABELS[scenario.depth]} effective · {POT_TYPE_LABELS[scenario.potType]}
+        </div>
         <div className="flex gap-8">
           <div>
             <div className="text-slate-400 text-xs">Pot</div>
@@ -153,9 +193,7 @@ export function PostflopTrainer() {
         </div>
       </div>
 
-      <p className="text-slate-300 text-center max-w-sm">
-        Villain bets, everyone else folds to you. Call or fold?
-      </p>
+      <p className="text-slate-300 text-center max-w-sm">{POT_TYPE_PROMPT[scenario.potType]}</p>
 
       {answer === null && (
         <HintBox>
@@ -197,7 +235,11 @@ export function PostflopTrainer() {
           <div className="text-sm text-slate-400 text-center max-w-sm">
             Your hand: {analysis.categoryName}
             <br />
-            Estimated equity vs. villain's {analysis.tier} betting range:{' '}
+            Estimated equity vs.{' '}
+            {scenario.potType === 'multiway'
+              ? `both opponents' ${analysis.tier} ranges`
+              : `villain's ${analysis.tier} betting range`}
+            {scenario.potType === 'threeBet' ? ' (3-bet pot)' : ''}:{' '}
             {(analysis.equity * 100).toFixed(1)}% (required: {(analysis.required * 100).toFixed(1)}%)
             <br />
             EV of calling: ${analysis.ev.toFixed(2)}
@@ -218,7 +260,10 @@ export function PostflopTrainer() {
         decision than assuming any two cards. Pot size scales down with
         shallower effective stacks; the equity-vs-pot-odds math doesn't
         depend on depth, but how much you should trust implied odds beyond
-        it does.
+        it does. 3-bet pots use a tighter villain range (they already
+        continued facing a 3-bet); multiway pots estimate your equity
+        against two opponents' ranges at once, which is why the same hand
+        often needs more equity to be a good call multiway than heads-up.
       </p>
     </div>
   )

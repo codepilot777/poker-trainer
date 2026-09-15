@@ -1,5 +1,13 @@
 import { useState } from 'react'
-import { SettingsContext, readHintsEnabled, writeHintsEnabled } from './lib/settings'
+import {
+  SettingsContext,
+  readHintsEnabled,
+  writeHintsEnabled,
+  readInclude3BetPots,
+  writeInclude3BetPots,
+  readIncludeMultiway,
+  writeIncludeMultiway,
+} from './lib/settings'
 import { PreflopTrainer } from './modules/PreflopTrainer'
 import { FacingRaiseTrainer } from './modules/FacingRaiseTrainer'
 import { PotOddsTrainer } from './modules/PotOddsTrainer'
@@ -36,14 +44,35 @@ const TOOL_TABS: { id: Tab; label: string; icon: string }[] = [
 function App() {
   const [tab, setTab] = useState<Tab>('preflop')
   const [hintsEnabled, setHintsEnabledState] = useState(() => readHintsEnabled())
+  const [include3BetPots, setInclude3BetPotsState] = useState(() => readInclude3BetPots())
+  const [includeMultiway, setIncludeMultiwayState] = useState(() => readIncludeMultiway())
 
   function setHintsEnabled(v: boolean) {
     setHintsEnabledState(v)
     writeHintsEnabled(v)
   }
 
+  function setInclude3BetPots(v: boolean) {
+    setInclude3BetPotsState(v)
+    writeInclude3BetPots(v)
+  }
+
+  function setIncludeMultiway(v: boolean) {
+    setIncludeMultiwayState(v)
+    writeIncludeMultiway(v)
+  }
+
   return (
-    <SettingsContext.Provider value={{ hintsEnabled, setHintsEnabled }}>
+    <SettingsContext.Provider
+      value={{
+        hintsEnabled,
+        setHintsEnabled,
+        include3BetPots,
+        setInclude3BetPots,
+        includeMultiway,
+        setIncludeMultiway,
+      }}
+    >
     <div className="min-h-screen bg-[#0f1115] text-slate-100">
       <div className="max-w-4xl mx-auto px-4 py-5 sm:py-8 flex flex-col gap-5 sm:gap-8">
         <header className="text-center relative">

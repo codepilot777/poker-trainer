@@ -29,3 +29,20 @@ export function villainRangeForBet(bet: number, pot: number): VillainRangeTier {
   if (fraction < 0.85) return 'medium'
   return 'tight'
 }
+
+/**
+ * Villain betting ranges for a 3-bet pot: villain already had to continue
+ * facing a preflop 3-bet to get here, so even the "wide" tier is much
+ * tighter than the single-raised-pot equivalent.
+ */
+const RAW_VILLAIN_RANGES_3BET = {
+  wide: '55+,A8s+,KTs+,QTs+,JTs,T9s,98s,AJo+,KQo',
+  medium: '77+,ATs+,KJs+,QJs,AQo+',
+  tight: 'TT+,AQs+,AKo',
+} as const
+
+export const VILLAIN_RANGES_3BET: Record<VillainRangeTier, Set<string>> = {
+  wide: parseRange(RAW_VILLAIN_RANGES_3BET.wide),
+  medium: parseRange(RAW_VILLAIN_RANGES_3BET.medium),
+  tight: parseRange(RAW_VILLAIN_RANGES_3BET.tight),
+}

@@ -97,6 +97,78 @@ export function estimateEquityVsRange(
   }
 }
 
+/**
+ * Monte Carlo equity of hero's two hole cards vs several villain ranges at
+ * once (a multiway pot), given a partial board. Each trial samples one
+ * combo per villain range (card-removal-consistent across all of them),
+ * and hero only wins a trial by beating every villain — ties count if
+ * hero isn't beaten but shares the best hand with at least one villain.
+ * Good enough for training the "multiway pots need more equity" instinct,
+ * not a precise multi-way equity calculator.
+ */
+export function estimateEquityVsMultipleRanges(
+  hero: [Card, Card],
+  board: Card[],
+  villainRanges: Set<string>[],
+  trials = 800,
+): EquityResult {
+  const known = [...hero, ...board]
+  const comboPools = villainRanges.map((range) => expandRangeToCombos(range, known))
+  if (comboPools.some((pool) => pool.length === 0)) {
+    return estimateEquityVsRandom(hero, board, trials)
+  }
+
+  const fullDeck = makeDeck()
+  let win = 0
+  let tie = 0
+  let lose = 0
+  let effectiveTrials = 0
+
+  for (let t = 0; t < trials; t++) {
+    const villainHands: [Card, Card][] = []
+    let ok = true
+    for (const pool of comboPools) {
+      const valid = pool.filter((c) => !villainHands.some((vh) => comboOverlaps(c, vh)))
+      if (valid.length === 0) {
+        ok = false
+        break
+      }
+      villainHands.push(valid[Math.floor(Math.random() * valid.length)])
+    }
+    if (!ok) continue
+
+    const remaining = removeCards(fullDeck, [...known, ...villainHands.flat()])
+    const pool = shuffle(remaining)
+    const boardNeeded = 5 - board.length
+    const runout = pool.slice(0, boardNeeded)
+    const finalBoard = [...board, ...runout]
+
+    let beaten = false
+    let tiedBest = false
+    for (const vh of villainHands) {
+      const cmp = compareHands([...hero, ...finalBoard], [...vh, ...finalBoard])
+      if (cmp < 0) {
+        beaten = true
+        break
+      }
+      if (cmp === 0) tiedBest = true
+    }
+    if (beaten) lose++
+    else if (tiedBest) tie++
+    else win++
+    effectiveTrials++
+  }
+
+  if (effectiveTrials === 0) return estimateEquityVsRandom(hero, board, trials)
+
+  return {
+    win: win / effectiveTrials,
+    tie: tie / effectiveTrials,
+    lose: lose / effectiveTrials,
+    equity: (win + tie / 2) / effectiveTrials,
+  }
+}
+
 export interface RangeVsRangeResult {
   equityA: number
   equityB: number
