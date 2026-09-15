@@ -28,6 +28,12 @@ npm run build    # typecheck + production build
 Built with React, TypeScript, Vite, and Tailwind CSS. No backend — all hand
 evaluation and equity estimation runs client-side.
 
+## Keyboard shortcuts
+
+Each drill supports single-key answers for faster reps: R/F for raise/fold,
+F/C/R for fold/call/3-bet, C/F for call/fold, and Enter (or Space) to advance
+to the next question once answered.
+
 ## Offline use
 
 The app is a PWA: after your first visit, a service worker precaches the

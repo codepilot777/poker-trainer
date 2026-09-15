@@ -3,6 +3,7 @@ import { POSITION_NAMES, type Position } from '../data/preflopRanges'
 import { correctVsOpenAction, tierForOpenerPosition, type Vs3BetAction } from '../data/vsOpenRanges'
 import { randomHandLabelWeighted } from '../lib/handGrid'
 import { RangeGrid } from '../components/RangeGrid'
+import { useHotkeys } from '../lib/useHotkeys'
 
 const ACTION_LABEL: Record<Vs3BetAction, string> = {
   fold: 'Fold',
@@ -50,6 +51,14 @@ export function FacingRaiseTrainer() {
     setAnswer(null)
   }
 
+  useHotkeys({
+    f: () => pick('fold'),
+    c: () => pick('call'),
+    r: () => pick('threeBet'),
+    enter: () => answer !== null && next(),
+    ' ': () => answer !== null && next(),
+  })
+
   function chartClass(label: string): string {
     const action = correctVsOpenAction(tier, label)
     if (action === 'threeBet') return 'bg-rose-600/80 text-white'
@@ -66,11 +75,17 @@ export function FacingRaiseTrainer() {
       <div className="text-slate-300">
         Score: <span className="text-white font-semibold">{score.correct}</span> /{' '}
         {score.total}
+        {score.total > 0 && (
+          <span className="text-slate-500"> ({Math.round((score.correct / score.total) * 100)}%)</span>
+        )}
       </div>
 
       <div className="flex flex-col items-center gap-2">
         <div className="text-lg text-slate-400">vs. {POSITION_NAMES[round.opener]} open</div>
-        <div className="text-6xl font-bold tracking-wide bg-slate-800 rounded-xl px-10 py-6 border border-slate-700">
+        <div
+          key={round.hand + round.opener}
+          className="animate-pop-in text-6xl font-bold tracking-wide bg-slate-800 rounded-xl px-10 py-6 border border-slate-700"
+        >
           {round.hand}
         </div>
       </div>
@@ -79,25 +94,25 @@ export function FacingRaiseTrainer() {
         <div className="flex gap-4">
           <button
             onClick={() => pick('fold')}
-            className="px-5 py-3 rounded-lg bg-rose-600 hover:bg-rose-500 font-semibold text-white"
+            className="px-5 py-3 rounded-lg bg-rose-600 hover:bg-rose-500 active:scale-95 transition-transform font-semibold text-white"
           >
-            Fold
+            Fold <span className="text-rose-200 text-xs font-normal">(F)</span>
           </button>
           <button
             onClick={() => pick('call')}
-            className="px-5 py-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 font-semibold text-white"
+            className="px-5 py-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 active:scale-95 transition-transform font-semibold text-white"
           >
-            Call
+            Call <span className="text-emerald-200 text-xs font-normal">(C)</span>
           </button>
           <button
             onClick={() => pick('threeBet')}
-            className="px-5 py-3 rounded-lg bg-amber-600 hover:bg-amber-500 font-semibold text-white"
+            className="px-5 py-3 rounded-lg bg-amber-600 hover:bg-amber-500 active:scale-95 transition-transform font-semibold text-white"
           >
-            3-Bet
+            3-Bet <span className="text-amber-100 text-xs font-normal">(R)</span>
           </button>
         </div>
       ) : (
-        <div className="flex flex-col items-center gap-4">
+        <div className="flex flex-col items-center gap-4 animate-fade-in">
           <div
             className={[
               'px-4 py-2 rounded-lg font-semibold',
@@ -110,9 +125,9 @@ export function FacingRaiseTrainer() {
           </div>
           <button
             onClick={next}
-            className="px-6 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 font-semibold text-white"
+            className="px-6 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 active:scale-95 transition-transform font-semibold text-white"
           >
-            Next hand
+            Next hand <span className="text-indigo-200 text-xs font-normal">(Enter)</span>
           </button>
         </div>
       )}
@@ -125,7 +140,7 @@ export function FacingRaiseTrainer() {
       </button>
 
       {showChart && (
-        <div className="w-full max-w-xl flex flex-col items-center gap-2">
+        <div className="w-full max-w-xl flex flex-col items-center gap-2 animate-fade-in">
           <RangeGrid cellClass={chartClass} highlight={round.hand} />
           <div className="flex gap-4 text-xs text-slate-400">
             <span className="flex items-center gap-1">

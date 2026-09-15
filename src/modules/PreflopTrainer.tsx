@@ -3,6 +3,7 @@ import { POSITIONS, POSITION_NAMES, isInOpenRange, type Position } from '../data
 import { PREFLOP_OPEN_RANGES } from '../data/preflopRanges'
 import { randomHandLabelWeighted } from '../lib/handGrid'
 import { RangeGrid } from '../components/RangeGrid'
+import { useHotkeys } from '../lib/useHotkeys'
 
 function randomPosition(): Position {
   return POSITIONS[Math.floor(Math.random() * POSITIONS.length)]
@@ -40,6 +41,13 @@ export function PreflopTrainer() {
     setAnswer(null)
   }
 
+  useHotkeys({
+    r: () => pick('raise'),
+    f: () => pick('fold'),
+    enter: () => answer !== null && next(),
+    ' ': () => answer !== null && next(),
+  })
+
   return (
     <div className="flex flex-col gap-6 items-center">
       <div className="text-slate-400 text-sm">
@@ -49,11 +57,17 @@ export function PreflopTrainer() {
       <div className="text-slate-300">
         Score: <span className="text-white font-semibold">{score.correct}</span> /{' '}
         {score.total}
+        {score.total > 0 && (
+          <span className="text-slate-500"> ({Math.round((score.correct / score.total) * 100)}%)</span>
+        )}
       </div>
 
       <div className="flex flex-col items-center gap-2">
         <div className="text-lg text-slate-400">{POSITION_NAMES[round.position]}</div>
-        <div className="text-6xl font-bold tracking-wide bg-slate-800 rounded-xl px-10 py-6 border border-slate-700">
+        <div
+          key={round.hand + round.position}
+          className="animate-pop-in text-6xl font-bold tracking-wide bg-slate-800 rounded-xl px-10 py-6 border border-slate-700"
+        >
           {round.hand}
         </div>
       </div>
@@ -62,19 +76,19 @@ export function PreflopTrainer() {
         <div className="flex gap-4">
           <button
             onClick={() => pick('raise')}
-            className="px-6 py-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 font-semibold text-white"
+            className="px-6 py-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 active:scale-95 transition-transform font-semibold text-white"
           >
-            Raise
+            Raise <span className="text-emerald-200 text-xs font-normal">(R)</span>
           </button>
           <button
             onClick={() => pick('fold')}
-            className="px-6 py-3 rounded-lg bg-rose-600 hover:bg-rose-500 font-semibold text-white"
+            className="px-6 py-3 rounded-lg bg-rose-600 hover:bg-rose-500 active:scale-95 transition-transform font-semibold text-white"
           >
-            Fold
+            Fold <span className="text-rose-200 text-xs font-normal">(F)</span>
           </button>
         </div>
       ) : (
-        <div className="flex flex-col items-center gap-4">
+        <div className="flex flex-col items-center gap-4 animate-fade-in">
           <div
             className={[
               'px-4 py-2 rounded-lg font-semibold',
@@ -85,9 +99,9 @@ export function PreflopTrainer() {
           </div>
           <button
             onClick={next}
-            className="px-6 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 font-semibold text-white"
+            className="px-6 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 active:scale-95 transition-transform font-semibold text-white"
           >
-            Next hand
+            Next hand <span className="text-indigo-200 text-xs font-normal">(Enter)</span>
           </button>
         </div>
       )}
@@ -100,7 +114,7 @@ export function PreflopTrainer() {
       </button>
 
       {showChart && (
-        <div className="w-full max-w-xl">
+        <div className="w-full max-w-xl animate-fade-in">
           <RangeGrid inRange={PREFLOP_OPEN_RANGES[round.position]} highlight={round.hand} />
         </div>
       )}

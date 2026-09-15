@@ -4,6 +4,7 @@ import { cardLabel, makeDeck, shuffle } from '../lib/cards'
 import { estimateEquityVsRange, evOfCall, potOdds } from '../lib/equity'
 import { CATEGORY_NAMES, evaluateBest } from '../lib/evaluator'
 import { VILLAIN_RANGES, villainRangeForBet } from '../data/villainRanges'
+import { useHotkeys } from '../lib/useHotkeys'
 
 interface Scenario {
   hero: [Card, Card]
@@ -86,15 +87,25 @@ export function PostflopTrainer() {
     setAnswer(null)
   }
 
+  useHotkeys({
+    c: () => pick('call'),
+    f: () => pick('fold'),
+    enter: () => answer !== null && next(),
+    ' ': () => answer !== null && next(),
+  })
+
   return (
     <div className="flex flex-col gap-6 items-center">
       <div className="text-slate-300">
         Score: <span className="text-white font-semibold">{score.correct}</span> / {score.total}
+        {score.total > 0 && (
+          <span className="text-slate-500"> ({Math.round((score.correct / score.total) * 100)}%)</span>
+        )}
       </div>
 
       <div className="flex flex-col items-center gap-2">
         <div className="text-sm text-slate-400">Board</div>
-        <div className="flex gap-2">
+        <div key={scenario.board.map(cardLabel).join()} className="flex gap-2 animate-pop-in">
           {scenario.board.map((c) => (
             <CardChip key={cardLabel(c)} card={c} />
           ))}
@@ -103,7 +114,7 @@ export function PostflopTrainer() {
 
       <div className="flex flex-col items-center gap-2">
         <div className="text-sm text-slate-400">Your hand</div>
-        <div className="flex gap-2">
+        <div key={scenario.hero.map(cardLabel).join()} className="flex gap-2 animate-pop-in">
           {scenario.hero.map((c) => (
             <CardChip key={cardLabel(c)} card={c} />
           ))}
@@ -129,19 +140,19 @@ export function PostflopTrainer() {
         <div className="flex gap-4">
           <button
             onClick={() => pick('call')}
-            className="px-6 py-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 font-semibold text-white"
+            className="px-6 py-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 active:scale-95 transition-transform font-semibold text-white"
           >
-            Call
+            Call <span className="text-emerald-200 text-xs font-normal">(C)</span>
           </button>
           <button
             onClick={() => pick('fold')}
-            className="px-6 py-3 rounded-lg bg-rose-600 hover:bg-rose-500 font-semibold text-white"
+            className="px-6 py-3 rounded-lg bg-rose-600 hover:bg-rose-500 active:scale-95 transition-transform font-semibold text-white"
           >
-            Fold
+            Fold <span className="text-rose-200 text-xs font-normal">(F)</span>
           </button>
         </div>
       ) : (
-        <div className="flex flex-col items-center gap-3">
+        <div className="flex flex-col items-center gap-3 animate-fade-in">
           <div
             className={[
               'px-4 py-2 rounded-lg font-semibold',
@@ -164,9 +175,9 @@ export function PostflopTrainer() {
           </div>
           <button
             onClick={next}
-            className="px-6 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 font-semibold text-white"
+            className="px-6 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 active:scale-95 transition-transform font-semibold text-white"
           >
-            Next scenario
+            Next scenario <span className="text-indigo-200 text-xs font-normal">(Enter)</span>
           </button>
         </div>
       )}
