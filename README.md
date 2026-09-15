@@ -11,8 +11,8 @@ A web app for drilling three core No-Limit Hold'em skills:
   equity.
 - **Postflop Decisions** — shown a hole cards + board scenario and a bet to
   call, decide call or fold. Your equity is estimated via Monte Carlo
-  simulation against a random villain hand and compared to the pot odds
-  required to call.
+  simulation against an approximate villain betting range (wider for small
+  bets, tighter for big bets) and compared to the pot odds required to call.
 
 ## Development
 
@@ -34,8 +34,8 @@ install icon) for an app-like experience.
 
 ## Notes on accuracy
 
-The preflop ranges and postflop equity estimates are simplified
+The preflop ranges and postflop villain ranges are hand-authored
 approximations meant for practicing decision-making concepts (range
 recognition, pot odds vs. equity), not a solved GTO/solver output. Postflop
-equity is estimated against a uniformly random opponent hand rather than a
-realistic range.
+equity is estimated against a fixed range tier picked from bet size, not a
+read on a specific opponent's actual tendencies.

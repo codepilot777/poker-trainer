@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react'
 import type { Card } from '../lib/cards'
 import { cardLabel, makeDeck, shuffle } from '../lib/cards'
-import { estimateEquityVsRandom, evOfCall, potOdds } from '../lib/equity'
+import { estimateEquityVsRange, evOfCall, potOdds } from '../lib/equity'
 import { CATEGORY_NAMES, evaluateBest } from '../lib/evaluator'
+import { VILLAIN_RANGES, villainRangeForBet } from '../data/villainRanges'
 
 interface Scenario {
   hero: [Card, Card]
@@ -50,7 +51,13 @@ export function PostflopTrainer() {
 
   // Only run the (moderately expensive) Monte Carlo once per scenario.
   const analysis = useMemo(() => {
-    const equityResult = estimateEquityVsRandom(scenario.hero, scenario.board, 800)
+    const tier = villainRangeForBet(scenario.bet, scenario.pot)
+    const equityResult = estimateEquityVsRange(
+      scenario.hero,
+      scenario.board,
+      VILLAIN_RANGES[tier],
+      800,
+    )
     const required = potOdds(scenario.bet, scenario.pot)
     const ev = evOfCall(equityResult.equity, scenario.pot, scenario.bet)
     const category = evaluateBest([...scenario.hero, ...scenario.board])
@@ -58,6 +65,7 @@ export function PostflopTrainer() {
       equity: equityResult.equity,
       required,
       ev,
+      tier,
       correctAnswer: (equityResult.equity > required ? 'call' : 'fold') as 'call' | 'fold',
       categoryName: CATEGORY_NAMES[category.category],
     }
@@ -149,8 +157,8 @@ export function PostflopTrainer() {
           <div className="text-sm text-slate-400 text-center max-w-sm">
             Your hand: {analysis.categoryName}
             <br />
-            Estimated equity vs. a random hand: {(analysis.equity * 100).toFixed(1)}% (required:{' '}
-            {(analysis.required * 100).toFixed(1)}%)
+            Estimated equity vs. villain's {analysis.tier} betting range:{' '}
+            {(analysis.equity * 100).toFixed(1)}% (required: {(analysis.required * 100).toFixed(1)}%)
             <br />
             EV of calling: ${analysis.ev.toFixed(2)}
           </div>
@@ -164,9 +172,10 @@ export function PostflopTrainer() {
       )}
 
       <p className="text-xs text-slate-500 max-w-md text-center">
-        Equity is estimated via simulation against a uniformly random villain
-        hand — a simplification for training the pot-odds-vs-equity decision,
-        not a real opponent range.
+        Equity is estimated via simulation against an approximate villain
+        range (wider for small bets, tighter/stronger for big bets) rather
+        than a specific read — still a simplification, but closer to a real
+        decision than assuming any two cards.
       </p>
     </div>
   )
