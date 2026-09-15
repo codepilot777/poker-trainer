@@ -3,6 +3,7 @@ import { evOfCall, potOdds } from '../lib/equity'
 import { recordAttempt } from '../lib/progressStore'
 import { useHotkeys } from '../lib/useHotkeys'
 import { HintBox } from '../components/HintBox'
+import { STACK_DEPTHS, STACK_DEPTH_LABELS, type StackDepth } from '../data/stackDepthRanges'
 
 type QuestionType = 'potOdds' | 'ev'
 
@@ -10,19 +11,46 @@ interface Question {
   type: QuestionType
   pot: number
   bet: number
+  depth: StackDepth
   equityPct?: number // only for EV questions
+}
+
+// Shallower effective stacks mean less money has gone into (and can still go
+// into) the pot, so pot/bet sizes scale down with depth.
+const POT_RANGE: Record<StackDepth, [number, number]> = {
+  deep: [20, 300],
+  medium: [10, 130],
+  short: [6, 65],
+}
+
+const MIN_BET: Record<StackDepth, number> = {
+  deep: 10,
+  medium: 5,
+  short: 3,
+}
+
+const DEPTH_HINTS: Record<StackDepth, string> = {
+  deep: 'At 100bb effective, a strong draw can win extra money on later streets if it hits — real implied odds can make a call correct even a bit below the raw pot-odds number.',
+  medium: "At 40bb, there's less behind to win on future streets, so implied odds add less cushion — stick close to the raw required-equity number.",
+  short: "At 20bb effective, this is often close to your whole stack — there's barely any play left behind, so implied odds don't really apply. The raw number is the whole story.",
 }
 
 function randomInt(min: number, max: number): number {
   return Math.floor(Math.random() * (max - min + 1)) + min
 }
 
+function randomDepth(): StackDepth {
+  return STACK_DEPTHS[Math.floor(Math.random() * STACK_DEPTHS.length)]
+}
+
 function newQuestion(): Question {
-  const pot = randomInt(20, 300)
-  const bet = randomInt(10, Math.round(pot * 1.2))
+  const depth = randomDepth()
+  const [potMin, potMax] = POT_RANGE[depth]
+  const pot = randomInt(potMin, potMax)
+  const bet = randomInt(MIN_BET[depth], Math.max(MIN_BET[depth], Math.round(pot * 1.2)))
   const type: QuestionType = Math.random() < 0.5 ? 'potOdds' : 'ev'
-  if (type === 'potOdds') return { type, pot, bet }
-  return { type, pot, bet, equityPct: randomInt(15, 70) }
+  if (type === 'potOdds') return { type, pot, bet, depth }
+  return { type, pot, bet, depth, equityPct: randomInt(15, 70) }
 }
 
 export function PotOddsTrainer() {
@@ -59,8 +87,8 @@ export function PotOddsTrainer() {
       group: q.type === 'potOdds' ? 'Pot Odds %' : 'EV $',
       detail:
         q.type === 'potOdds'
-          ? `Pot odds — pot $${q.pot}, bet $${q.bet} — you: ${userVal}%, correct: ${target.toFixed(1)}%`
-          : `EV — pot $${q.pot}, bet $${q.bet}, equity ${q.equityPct}% — you: $${userVal}, correct: $${target.toFixed(2)}`,
+          ? `Pot odds — pot $${q.pot}, bet $${q.bet}, ${STACK_DEPTH_LABELS[q.depth]} — you: ${userVal}%, correct: ${target.toFixed(1)}%`
+          : `EV — pot $${q.pot}, bet $${q.bet}, equity ${q.equityPct}%, ${STACK_DEPTH_LABELS[q.depth]} — you: $${userVal}, correct: $${target.toFixed(2)}`,
     })
   }
 
@@ -93,10 +121,11 @@ export function PotOddsTrainer() {
       </div>
 
       <div
-        key={`${q.pot}-${q.bet}-${q.type}`}
+        key={`${q.pot}-${q.bet}-${q.type}-${q.depth}`}
         className="animate-pop-in bg-slate-800 border border-slate-700 rounded-xl px-8 py-6 w-full max-w-lg text-center flex flex-col gap-3"
       >
-        <div className="text-slate-400 text-sm">Pot before your action</div>
+        <div className="text-slate-400 text-sm">{STACK_DEPTH_LABELS[q.depth]} effective</div>
+        <div className="text-slate-400 text-sm mt-1">Pot before your action</div>
         <div className="text-3xl font-bold">${q.pot}</div>
         <div className="text-slate-400 text-sm mt-2">Villain bets, you must call</div>
         <div className="text-3xl font-bold">${q.bet}</div>
@@ -122,7 +151,8 @@ export function PotOddsTrainer() {
         <HintBox>
           {q.type === 'potOdds'
             ? 'Required equity = bet / (pot + bet). Divide the bet by the total pot after you call.'
-            : 'EV of calling = equity × (pot + bet) − (1 − equity) × bet. A negative EV means the call loses money on average even though it can still win the hand.'}
+            : 'EV of calling = equity × (pot + bet) − (1 − equity) × bet. A negative EV means the call loses money on average even though it can still win the hand.'}{' '}
+          {DEPTH_HINTS[q.depth]}
         </HintBox>
       )}
 
@@ -170,6 +200,9 @@ export function PotOddsTrainer() {
 
       <p className="text-xs text-slate-500 max-w-md text-center">
         Pot odds = bet / (pot + bet). EV of a call = equity × (pot + bet) − (1 − equity) × bet.
+        Pot and bet sizes scale down with shallower effective stacks; the math
+        itself doesn't depend on depth, but how much you should trust implied
+        odds beyond the raw number does.
       </p>
     </div>
   )
