@@ -33,13 +33,13 @@ interface TierRanges {
  */
 const RAW_POSITIONS_DEEP: Record<Position, TierRanges> = {
   UTG: { threeBet: 'QQ+,AKs,AKo', call: 'TT-JJ,AQs,KQs,AQo' },
-  MP: { threeBet: 'QQ+,AKs,AKo,AJs', call: '99-JJ,ATs-AQs,KTs,KQs,AJo,AQo' },
-  CO: { threeBet: 'JJ+,AQs+,AKo,A5s', call: '77-TT,A9s-AJs,KTs+,QJs,JTs,T9s,98s,87s,AJo,KQo' },
+  MP: { threeBet: 'QQ+,AKs,AKo,AJs', call: '99-JJ,ATs,AQs,KTs,KQs,AJo,AQo' },
+  CO: { threeBet: 'JJ+,AQs+,AKo,A5s', call: '77-TT,A9s-AJs,KTs+,QJs,JTs,T9s,98s,87s,AJo,AQo,KQo' },
   BTN: {
     threeBet: 'TT+,AJs+,KQs,AQo+,A5s,A4s,A3s',
-    call: '22-99,A2s-ATs,K9s+,Q8s+,J8s+,T8s+,97s+,86s+,75s+,64s+,53s+,43s,ATo+,K9o+,QTo+,JTo',
+    call: '22-99,A2s,A6s-ATs,K9s-KJs,Q8s+,J8s+,T8s+,97s+,86s+,75s+,64s+,53s+,43s,ATo-AJo,K9o+,QTo+,JTo',
   },
-  SB: { threeBet: 'JJ+,AQs+,AKo,A5s,A4s', call: '55-99,A5s-ATs,K9s+,Q9s+,J9s+,T9s,98s,87s,ATo+,KJo+,QJo' },
+  SB: { threeBet: 'JJ+,AQs+,AKo,A5s,A4s', call: '55-99,A6s-AJs,K9s+,Q9s+,J9s+,T9s,98s,87s,ATo-AQo,KJo+,QJo' },
 }
 
 /**
@@ -49,12 +49,12 @@ const RAW_POSITIONS_DEEP: Record<Position, TierRanges> = {
 const RAW_POSITIONS_MEDIUM: Record<Position, TierRanges> = {
   UTG: { threeBet: 'QQ+,AKs,AKo', call: 'JJ,AQs,KQs' },
   MP: { threeBet: 'QQ+,AKs,AKo', call: 'TT-JJ,AQs,KQs,AQo' },
-  CO: { threeBet: 'JJ+,AQs+,AKo', call: '88-TT,ATs-AJs,KTs+,QJs,JTs,AJo+,KQo' },
+  CO: { threeBet: 'JJ+,AQs+,AKo', call: '88-TT,ATs-AJs,KTs+,QJs,JTs,AJo-AQo,KQo' },
   BTN: {
     threeBet: 'TT+,AJs+,KQs,AQo+,A5s',
-    call: '44-99,A5s-ATs,K9s+,Q9s+,J9s+,T9s,98s,87s,76s,ATo+,KJo+,QJo',
+    call: '44-99,A6s-ATs,K9s-KJs,Q9s+,J9s+,T9s,98s,87s,76s,ATo-AJo,KJo+,QJo',
   },
-  SB: { threeBet: 'JJ+,AJs+,KQs,AQo+', call: '66-99,A7s-ATs,K9s+,Q9s+,J9s+,T9s,98s,ATo+,KJo+,QJo' },
+  SB: { threeBet: 'JJ+,AJs+,KQs,AQo+', call: '66-99,A7s-ATs,K9s-KJs,Q9s+,J9s+,T9s,98s,ATo-AJo,KJo+,QJo' },
 }
 
 /**
