@@ -33,17 +33,33 @@ const RAW_MEDIUM: Record<Position, string> = {
 }
 
 /**
- * 20bb shove ranges widen instead — postflop play barely exists at this
- * depth, so a shove's fold equity plus decent all-in equity when called
- * makes many hands profitable that wouldn't be a normal open, especially
- * from later positions with fewer players left to act behind.
+ * 20bb shove ranges: a computed chip-EV Nash equilibrium, not another
+ * hand-authored heuristic. Method: classical fictitious play with
+ * Cesàro-averaged beliefs (needed because naive iterative best-response
+ * oscillates instead of converging for this kind of game) — for each
+ * position, the shove range and every later position's calling range are
+ * jointly solved via Monte Carlo simulation of the app's own hand
+ * evaluator (150 trials/hand, 24 iterations), until the averaged
+ * strategies stabilize. Each of the five "first-in" shove decisions is an
+ * independent subgame (only one position can be first to act in a given
+ * hand), so UTG/MP/CO/BTN/SB were solved separately, each against all
+ * positions behind it (including BB, which never opens itself).
+ *
+ * Assumptions/simplifications: flat 20bb effective stack for every seat,
+ * no ante, blinds abstracted to a flat 1.5bb dead-money pot (not tracking
+ * exactly who posted what), pure chip EV (no ICM). Because this is a true
+ * mutual best-response rather than a "shove wide, real opponents fold too
+ * much" exploitative chart, it comes out noticeably tighter than typical
+ * published practical push/fold charts — that's expected, not a bug: a
+ * Nash-consistent opponent calls off enough that the shover can't profit
+ * from combos that only work if villain folds too often.
  */
 const RAW_SHORT: Record<Position, string> = {
-  UTG: '66+,A8s+,KTs+,QTs+,JTs,ATo+,KQo',
-  MP: '55+,A6s+,K9s+,QTs+,JTs,T9s,A9o+,KJo+',
-  CO: '33+,A2s+,K6s+,Q8s+,J8s+,T8s+,98s,87s,A7o+,K9o+,QTo+,JTo',
-  BTN: '22+,A2s+,K2s+,Q4s+,J6s+,T6s+,96s+,85s+,75s+,64s+,54s,A2o+,K5o+,Q8o+,J8o+,T8o+,98o',
-  SB: '22+,A2s+,K2s+,Q2s+,J4s+,T6s+,96s+,86s+,75s+,64s+,53s+,A2o+,K4o+,Q8o+,J8o+,T8o+,98o',
+  UTG: '66+,A8s+,KJs+,QTs,ATo+',
+  MP: '66+,A5s,A8s+,KTs,KQs,ATo+,KQo',
+  CO: '55+,A3s-A2s,A5s,A7s+,KJs+,A9o+,KJo+',
+  BTN: '33,55+,A2s+,K9s+,QJs,A5o+,KTo+',
+  SB: '22+,A2s+,K3s+,Q8s+,J9s+,T8s+,A2o+,K6o,K8o,KTo+,Q9o+,J9o',
 }
 
 function buildRanges(raw: Record<Position, string>): Record<Position, Set<string>> {

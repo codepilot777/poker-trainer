@@ -80,8 +80,18 @@ install icon) for an app-like experience.
 
 ## Notes on accuracy
 
-The preflop, 3-bet, and postflop villain ranges are hand-authored
+Most preflop, 3-bet, and postflop villain ranges are hand-authored
 approximations meant for practicing decision-making concepts (range
 recognition, pot odds vs. equity), not a solved GTO/solver output. Postflop
 equity is estimated against a fixed range tier picked from bet size, not a
 read on a specific opponent's actual tendencies.
+
+The 20bb shove ranges are the exception: they're an actually-computed
+chip-EV Nash equilibrium (fictitious play over Monte Carlo simulation using
+this app's own hand evaluator), not hand-authored. That also makes them
+tighter than many popular "practical" push/fold charts, which are often
+deliberately built wider to exploit opponents who over-fold rather than to
+be a true unexploitable equilibrium. Simplifications: a flat 20bb effective
+stack for every seat, no ante, blinds abstracted to a flat 1.5bb dead-money
+pot, and each of the five shove positions solved as an independent subgame
+rather than one fully joint equilibrium.

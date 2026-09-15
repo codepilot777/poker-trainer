@@ -168,10 +168,13 @@ export function PreflopTrainer() {
       )}
 
       <p className="text-xs text-slate-500 max-w-md text-center">
-        Ranges shown are simplified 6-max approximations for practicing
-        recognition — not a solved GTO output. At 20bb, "open" becomes a
-        shove: postflop play barely exists, so ranges widen from fold equity
-        rather than tighten. At 40bb, the most speculative hands (small
+        100bb and 40bb ranges are hand-authored approximations for practicing
+        recognition, not solved GTO output. The 20bb shove range is
+        different: a chip-EV Nash equilibrium actually computed for this app
+        (fictitious play over Monte Carlo simulation, no ICM/antes) — which
+        is why it's tighter than many "practical" push/fold charts built to
+        exploit opponents who fold too much, rather than to be unexploitable
+        against a perfect caller. At 40bb, the most speculative hands (small
         suited connectors, weak suited aces) lose value as implied odds
         shrink, so ranges tighten from the 100bb baseline.
       </p>
