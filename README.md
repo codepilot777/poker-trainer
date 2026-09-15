@@ -25,6 +25,13 @@ npm run build    # typecheck + production build
 Built with React, TypeScript, Vite, and Tailwind CSS. No backend — all hand
 evaluation and equity estimation runs client-side.
 
+## Offline use
+
+The app is a PWA: after your first visit, a service worker precaches the
+app so it keeps working with no network connection, and it can be installed
+to your phone/desktop home screen ("Add to Home Screen" / the browser's
+install icon) for an app-like experience.
+
 ## Notes on accuracy
 
 The preflop ranges and postflop equity estimates are simplified
