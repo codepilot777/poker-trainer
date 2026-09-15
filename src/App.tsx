@@ -18,15 +18,18 @@ type Tab =
   | 'learn'
   | 'progress'
 
-const TABS: { id: Tab; label: string; shortLabel: string }[] = [
+const DRILL_TABS: { id: Tab; label: string; shortLabel: string }[] = [
   { id: 'preflop', label: 'Preflop Ranges', shortLabel: 'Preflop' },
   { id: 'facingraise', label: 'Facing a Raise', shortLabel: 'vs. Raise' },
   { id: 'potodds', label: 'Pot Odds & EV', shortLabel: 'Pot Odds' },
   { id: 'postflop', label: 'Postflop Decisions', shortLabel: 'Postflop' },
   { id: 'betsizing', label: 'Bet Sizing', shortLabel: 'Sizing' },
-  { id: 'rangeexplorer', label: 'Range Explorer', shortLabel: 'Explorer' },
-  { id: 'learn', label: 'Learn', shortLabel: 'Learn' },
-  { id: 'progress', label: 'Progress', shortLabel: 'Progress' },
+]
+
+const TOOL_TABS: { id: Tab; label: string; icon: string }[] = [
+  { id: 'rangeexplorer', label: 'Range Explorer', icon: '🔀' },
+  { id: 'learn', label: 'Learn', icon: '📘' },
+  { id: 'progress', label: 'Progress', icon: '📊' },
 ]
 
 function App() {
@@ -43,20 +46,43 @@ function App() {
           </p>
         </header>
 
-        <nav className="flex justify-start sm:justify-center gap-2 overflow-x-auto no-scrollbar -mx-4 px-4 sm:mx-0 sm:px-0 sm:flex-wrap">
-          {TABS.map((t) => (
+        <div className="flex flex-col gap-2">
+          <div className="text-xs font-medium text-slate-500 uppercase tracking-wide text-center sm:text-left sm:pl-0.5">
+            Practice
+          </div>
+          <nav className="flex justify-start sm:justify-center gap-2 overflow-x-auto no-scrollbar -mx-4 px-4 sm:mx-0 sm:px-0 sm:flex-wrap">
+            {DRILL_TABS.map((t) => (
+              <button
+                key={t.id}
+                onClick={() => setTab(t.id)}
+                className={[
+                  'shrink-0 px-3.5 py-2 rounded-lg font-medium text-sm sm:text-base transition-all active:scale-95',
+                  tab === t.id
+                    ? 'bg-indigo-600 text-white'
+                    : 'bg-slate-800 text-slate-300 hover:bg-slate-700',
+                ].join(' ')}
+              >
+                <span className="sm:hidden">{t.shortLabel}</span>
+                <span className="hidden sm:inline">{t.label}</span>
+              </button>
+            ))}
+          </nav>
+        </div>
+
+        <nav className="flex justify-center gap-2 flex-wrap -mt-2 sm:-mt-4">
+          {TOOL_TABS.map((t) => (
             <button
               key={t.id}
               onClick={() => setTab(t.id)}
               className={[
-                'shrink-0 px-3.5 py-2 rounded-lg font-medium text-sm sm:text-base transition-all active:scale-95',
+                'shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full font-medium text-sm transition-all active:scale-95 border',
                 tab === t.id
-                  ? 'bg-indigo-600 text-white'
-                  : 'bg-slate-800 text-slate-300 hover:bg-slate-700',
+                  ? 'bg-slate-700 text-white border-slate-500'
+                  : 'bg-transparent text-slate-400 border-slate-700 hover:border-slate-500 hover:text-slate-200',
               ].join(' ')}
             >
-              <span className="sm:hidden">{t.shortLabel}</span>
-              <span className="hidden sm:inline">{t.label}</span>
+              <span>{t.icon}</span>
+              {t.label}
             </button>
           ))}
         </nav>
