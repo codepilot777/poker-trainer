@@ -31,6 +31,54 @@ const SECTIONS: Section[] = [
     ),
   },
   {
+    title: 'Stack depth & effective stacks',
+    body: (
+      <>
+        <p>
+          Your <strong>effective stack</strong> against an opponent is the
+          smaller of your two stacks, in big blinds (bb) — that's the most
+          money that can actually change hands between you this hand. It
+          matters because it caps how much play is left after the current
+          bet, which changes what the right decision is even with the same
+          cards and the same pot odds. This app drills three benchmark
+          depths:
+        </p>
+        <ul className="list-disc list-inside mt-2 space-y-1">
+          <li><strong>100bb (deep)</strong> — a full, standard stack. Plenty of room for multi-street play, so ranges and sizing can be more nuanced.</li>
+          <li><strong>40bb (medium)</strong> — shallower. The most speculative hands (small suited connectors, weak suited aces) lose value as there's less behind to win when they hit.</li>
+          <li><strong>20bb (short / push-fold)</strong> — postflop play barely exists. Open-raising gives way to shoving, and facing a raise becomes mostly shove-or-fold instead of a flat call.</li>
+        </ul>
+        <p className="mt-2">
+          Two ideas connect stack depth to decisions you'll see across the
+          drills:
+        </p>
+        <ul className="list-disc list-inside mt-2 space-y-1">
+          <li>
+            <strong>Implied odds</strong> — deep stacked, a drawing hand can
+            profitably call a bit below the raw pot-odds number, because
+            hitting can win extra money on later streets. Short stacked
+            (especially when the bet is effectively an all-in), there's
+            nothing left to win later, so the raw pot-odds/equity comparison
+            is the whole story.
+          </li>
+          <li>
+            <strong>Stack-to-pot ratio (SPR)</strong> — as effective stacks
+            shrink relative to the pot, bet sizing gets simpler. Deep, thin
+            value bets and pot-control lines are worth planning across
+            multiple streets; short, one more bet can commit the rest of
+            your stack anyway, so sizing collapses toward bet-big-or-check.
+          </li>
+        </ul>
+        <p className="mt-2">
+          Every drill in this app — Preflop Ranges, Facing a Raise, Pot
+          Odds & EV, Postflop Decisions, and Bet Sizing — randomizes the
+          effective stack depth per question, and the Range Explorer lets
+          you compare any two ranges at any of the three depths.
+        </p>
+      </>
+    ),
+  },
+  {
     title: 'Reading range charts',
     body: (
       <>
