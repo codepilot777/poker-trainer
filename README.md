@@ -17,6 +17,13 @@ drill:
     20bb a flat call barely exists, it's mostly shove-or-fold, so call and
     shove are graded as equally correct (same all-in chip-EV action).
 
+  At 100bb/40bb, one hand-picked boundary hand per position/depth (the
+  weakest hand right at the edge of open-or-fold, or of call-or-fold) is
+  graded as a genuine mixed strategy — either action is accepted, matching
+  how real solves often split a range's weakest combo between two actions
+  instead of playing it purely one way. It's marked with a distinct color
+  on the range chart.
+
   Reveal the full 13x13 range chart for the current position + depth at any
   time.
 
@@ -125,3 +132,13 @@ be a true unexploitable equilibrium. Simplifications: a flat 20bb effective
 stack for every seat, no ante, blinds abstracted to a flat 1.5bb dead-money
 pot, and each of the five shove positions solved as an independent subgame
 rather than one fully joint equilibrium.
+
+Mixed strategies and balanced bluffing frequencies aren't modeled in
+general — every scenario grades toward a single best-EV action (or, at
+20bb, two actions that are actually the same chip-EV decision). The one
+deliberate exception is the small hand-picked boundary-hand set in the
+Preflop drill described above; the Flop drill doesn't have an equivalent,
+since building a genuinely balanced bet/check or bluff/value range would
+mean grading a whole range's composition rather than one scenario at a
+time — a bigger step than this app's per-hand approximations are set up
+for.

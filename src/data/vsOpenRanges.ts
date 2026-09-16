@@ -124,10 +124,39 @@ export function correctVsOpenAction(
 }
 
 /**
+ * A small hand-picked set of boundary hands per opener position — the
+ * single weakest hand currently inside that position's call range — that
+ * real solves commonly mix between call and fold rather than playing
+ * purely one way. Graded as accepting either action. Only at 100bb/40bb;
+ * the 20bb boundary is an actually-computed Nash equilibrium (a pure
+ * threshold, not a mix), and is already handled separately above by
+ * merging call/threeBet into one accepted action.
+ */
+const RAW_MIXED_CALL: Record<Exclude<ResponseDepth, 'short'>, Record<Position, string>> = {
+  deep: { UTG: 'TT', MP: '99', CO: '87s', BTN: '43s', SB: '87s' },
+  medium: { UTG: 'JJ', MP: 'TT', CO: 'JTs', BTN: '76s', SB: '98s' },
+}
+
+function buildSingleHandSets(raw: Record<Position, string>): Record<Position, Set<string>> {
+  return Object.fromEntries(POSITIONS.map((pos) => [pos, new Set([raw[pos]])])) as Record<Position, Set<string>>
+}
+
+export const MIXED_CALL_HANDS: Record<ResponseDepth, Record<Position, Set<string>>> = {
+  deep: buildSingleHandSets(RAW_MIXED_CALL.deep),
+  medium: buildSingleHandSets(RAW_MIXED_CALL.medium),
+  short: Object.fromEntries(POSITIONS.map((pos) => [pos, new Set<string>()])) as Record<Position, Set<string>>,
+}
+
+export function isMixedCallHand(depth: ResponseDepth, openerPosition: Position, handLabel: string): boolean {
+  return MIXED_CALL_HANDS[depth][openerPosition].has(handLabel)
+}
+
+/**
  * Whether `action` is an acceptable answer, not just the single canonical
  * one. At 20bb, call and threeBet are the same chip-EV action (see
  * RAW_POSITIONS_SHORT above), so either is correct whenever the canonical
- * answer isn't fold.
+ * answer isn't fold. At 100bb/40bb, a small set of hand-picked boundary
+ * hands mix call and fold (see RAW_MIXED_CALL above).
  */
 export function isAcceptableVsOpenAction(
   depth: ResponseDepth,
@@ -138,5 +167,6 @@ export function isAcceptableVsOpenAction(
   const canonical = correctVsOpenAction(depth, openerPosition, handLabel)
   if (action === canonical) return true
   if (depth === 'short' && canonical !== 'fold' && action !== 'fold') return true
+  if (isMixedCallHand(depth, openerPosition, handLabel) && (action === 'call' || action === 'fold')) return true
   return false
 }

@@ -77,3 +77,42 @@ export const STACK_DEPTH_RANGES: Record<StackDepth, Record<Position, Set<string>
 export function isInDepthRange(depth: StackDepth, position: Position, handLabel: string): boolean {
   return STACK_DEPTH_RANGES[depth][position].has(handLabel)
 }
+
+/**
+ * A small hand-picked set of boundary hands per position — the single
+ * weakest hand currently inside that position's open range — that real
+ * solves commonly mix between open and fold rather than playing purely one
+ * way. Graded as accepting either action. Only at 100bb/40bb, where the
+ * underlying ranges are hand-authored approximations; the 20bb range is an
+ * actually-computed Nash equilibrium, whose boundary is a pure threshold
+ * rather than a mix (see RAW_SHORT above), so it's left out here.
+ */
+const RAW_MIXED_OPEN: Record<Exclude<StackDepth, 'short'>, Record<Position, string>> = {
+  deep: { UTG: '98s', MP: '87s', CO: '65s', BTN: '54s', SB: '65s' },
+  medium: { UTG: '88', MP: '77', CO: '98s', BTN: '87s', SB: '98s' },
+}
+
+function buildSingleHandSets(raw: Record<Position, string>): Record<Position, Set<string>> {
+  return Object.fromEntries(POSITIONS.map((pos) => [pos, new Set([raw[pos]])])) as Record<Position, Set<string>>
+}
+
+export const MIXED_OPEN_HANDS: Record<StackDepth, Record<Position, Set<string>>> = {
+  deep: buildSingleHandSets(RAW_MIXED_OPEN.deep),
+  medium: buildSingleHandSets(RAW_MIXED_OPEN.medium),
+  short: Object.fromEntries(POSITIONS.map((pos) => [pos, new Set<string>()])) as Record<Position, Set<string>>,
+}
+
+export function isMixedOpenHand(depth: StackDepth, position: Position, handLabel: string): boolean {
+  return MIXED_OPEN_HANDS[depth][position].has(handLabel)
+}
+
+export function isAcceptableOpenAction(
+  depth: StackDepth,
+  position: Position,
+  handLabel: string,
+  action: 'open' | 'fold',
+): boolean {
+  const canonical: 'open' | 'fold' = isInDepthRange(depth, position, handLabel) ? 'open' : 'fold'
+  if (action === canonical) return true
+  return isMixedOpenHand(depth, position, handLabel)
+}

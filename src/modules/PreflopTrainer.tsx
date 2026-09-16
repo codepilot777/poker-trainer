@@ -6,11 +6,14 @@ import {
   STACK_DEPTH_ACTION_LABEL,
   STACK_DEPTH_RANGES,
   isInDepthRange,
+  isAcceptableOpenAction,
+  isMixedOpenHand,
   type StackDepth,
 } from '../data/stackDepthRanges'
 import {
   correctVsOpenAction,
   isAcceptableVsOpenAction,
+  isMixedCallHand,
   RESPONSE_AGGRO_LABEL,
   type Vs3BetAction,
 } from '../data/vsOpenRanges'
@@ -92,23 +95,34 @@ export function PreflopTrainer() {
         : 'fold'
       : (correctVsOpenAction(round.depth, round.position, round.hand) as Action)
 
+  const isMixed =
+    round.kind === 'firstIn'
+      ? isMixedOpenHand(round.depth, round.position, round.hand)
+      : isMixedCallHand(round.depth, round.position, round.hand)
+
   const isCorrect =
     answer !== null &&
     (round.kind === 'firstIn'
-      ? answer === correctAnswer
+      ? isAcceptableOpenAction(round.depth, round.position, round.hand, answer as 'open' | 'fold')
       : isAcceptableVsOpenAction(round.depth, round.position, round.hand, answer as Vs3BetAction))
 
-  // At 20bb facing an open, call/threeBet are the same chip-EV action — show both.
+  // At 20bb facing an open, call/threeBet are the same chip-EV action — show
+  // both. At 100bb/40bb, a small hand-picked set of boundary hands mix
+  // between two actions instead of having one pure answer — show both too.
   const correctAnswerLabel =
     round.kind === 'facingOpen' && round.depth === 'short' && correctAnswer !== 'fold'
       ? `Call or ${aggroLabel}`
-      : actionLabel(correctAnswer)
+      : isMixed
+        ? round.kind === 'firstIn'
+          ? `Mixed — ${openLabel} or Fold`
+          : 'Mixed — Call or Fold'
+        : actionLabel(correctAnswer)
 
   function pick(choice: Action) {
     if (answer !== null) return
     const wasCorrect =
       round.kind === 'firstIn'
-        ? choice === correctAnswer
+        ? isAcceptableOpenAction(round.depth, round.position, round.hand, choice as 'open' | 'fold')
         : isAcceptableVsOpenAction(round.depth, round.position, round.hand, choice as Vs3BetAction)
     setAnswer(choice)
     setScore((s) => ({
@@ -121,7 +135,7 @@ export function PreflopTrainer() {
         moduleLabel: 'Preflop: Open/Fold',
         correct: wasCorrect,
         group: round.position,
-        detail: `${round.hand} at ${round.position}, ${STACK_DEPTH_LABELS[round.depth]} — you: ${actionLabel(choice)}, correct: ${actionLabel(correctAnswer)}`,
+        detail: `${round.hand} at ${round.position}, ${STACK_DEPTH_LABELS[round.depth]} — you: ${actionLabel(choice)}, correct: ${correctAnswerLabel}`,
       })
     } else {
       recordAttempt({
@@ -150,10 +164,12 @@ export function PreflopTrainer() {
 
   function chartClass(label: string): string {
     if (round.kind === 'firstIn') {
+      if (isMixedOpenHand(round.depth, round.position, label)) return 'bg-sky-600/80 text-white'
       return STACK_DEPTH_RANGES[round.depth][round.position].has(label)
         ? 'bg-emerald-600/80 text-white'
         : 'bg-slate-800 text-slate-500'
     }
+    if (isMixedCallHand(round.depth, round.position, label)) return 'bg-sky-600/80 text-white'
     const action = correctVsOpenAction(round.depth, round.position, label)
     // At 20bb call/threeBet are the same action, so one merged "continue" color.
     if (round.depth === 'short') return action === 'fold' ? 'bg-slate-800 text-slate-500' : 'bg-amber-600/80 text-white'
@@ -252,7 +268,11 @@ export function PreflopTrainer() {
               isCorrect ? 'bg-emerald-600/20 text-emerald-400' : 'bg-rose-600/20 text-rose-400',
             ].join(' ')}
           >
-            {isCorrect ? 'Correct!' : `Not quite — correct answer is ${correctAnswerLabel.toUpperCase()}`}
+            {isCorrect
+              ? isMixed
+                ? `Correct! (${correctAnswerLabel} — this hand is a real toss-up either way)`
+                : 'Correct!'
+              : `Not quite — correct answer is ${correctAnswerLabel.toUpperCase()}`}
           </div>
           <button
             onClick={next}
@@ -275,28 +295,35 @@ export function PreflopTrainer() {
       {showChart && (
         <div className="w-full max-w-xl flex flex-col items-center gap-2 animate-fade-in">
           <RangeGrid cellClass={chartClass} highlight={round.hand} />
-          {round.kind === 'facingOpen' && (
-            <div className="flex gap-4 text-xs text-slate-400">
-              {round.depth === 'short' ? (
-                <span className="flex items-center gap-1">
-                  <span className="inline-block w-3 h-3 rounded-sm bg-amber-600/80" /> Call or Shove
-                </span>
-              ) : (
-                <>
-                  <span className="flex items-center gap-1">
-                    <span className="inline-block w-3 h-3 rounded-sm bg-amber-600/80" /> {aggroLabel}
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <span className="inline-block w-3 h-3 rounded-sm bg-emerald-600/80" /> Call
-                  </span>
-                </>
-              )}
+          <div className="flex gap-4 text-xs text-slate-400 flex-wrap justify-center">
+            {round.kind === 'firstIn' ? (
               <span className="flex items-center gap-1">
-                <span className="inline-block w-3 h-3 rounded-sm bg-slate-800 border border-slate-600" />{' '}
-                Fold
+                <span className="inline-block w-3 h-3 rounded-sm bg-emerald-600/80" /> {openLabel}
               </span>
-            </div>
-          )}
+            ) : round.depth === 'short' ? (
+              <span className="flex items-center gap-1">
+                <span className="inline-block w-3 h-3 rounded-sm bg-amber-600/80" /> Call or Shove
+              </span>
+            ) : (
+              <>
+                <span className="flex items-center gap-1">
+                  <span className="inline-block w-3 h-3 rounded-sm bg-amber-600/80" /> {aggroLabel}
+                </span>
+                <span className="flex items-center gap-1">
+                  <span className="inline-block w-3 h-3 rounded-sm bg-emerald-600/80" /> Call
+                </span>
+              </>
+            )}
+            {round.depth !== 'short' && (
+              <span className="flex items-center gap-1">
+                <span className="inline-block w-3 h-3 rounded-sm bg-sky-600/80" /> Mixed (either is correct)
+              </span>
+            )}
+            <span className="flex items-center gap-1">
+              <span className="inline-block w-3 h-3 rounded-sm bg-slate-800 border border-slate-600" />{' '}
+              Fold
+            </span>
+          </div>
         </div>
       )}
 
@@ -308,7 +335,11 @@ export function PreflopTrainer() {
         tighter than many "practical" push/fold charts built to exploit
         opponents who fold too much, rather than to be unexploitable against
         a perfect caller. At 20bb facing an open, Call and {aggroLabel} are
-        graded as equally correct since they're the same all-in action.
+        graded as equally correct since they're the same all-in action. At
+        100bb/40bb, one hand-picked boundary hand per position/depth is
+        graded as a real mix — real solves often split the weakest
+        continuing combo between two actions instead of playing it purely
+        one way, so both are marked correct there too.
       </p>
     </div>
   )
