@@ -19,6 +19,11 @@ import { useScenarioMix } from '../lib/settings'
 import { CardChip } from '../components/CardChip'
 import { HintBox } from '../components/HintBox'
 import { ScenarioMixToggle } from '../components/ScenarioMixToggle'
+import { RangeGrid } from '../components/RangeGrid'
+
+function streetName(boardSize: number): string {
+  return boardSize === 3 ? 'the flop' : boardSize === 4 ? 'the turn' : 'the river'
+}
 
 type SizingAction = 'check' | 'betSmall' | 'betBig'
 
@@ -53,7 +58,7 @@ const POT_TYPE_LABELS: Record<PotType, string> = {
   multiway: 'Multiway (3-handed)',
 }
 
-function scenarioPrompt(potType: PotType, ctx: PreflopContext): string {
+function scenarioPrompt(potType: PotType, ctx: PreflopContext, boardSize: number): string {
   const hero = seatLabel(ctx.heroPosition)
   const villain = seatLabel(ctx.villainPosition)
   const preflop =
@@ -63,7 +68,8 @@ function scenarioPrompt(potType: PotType, ctx: PreflopContext): string {
         : `You opened ${hero}, ${villain} called.`
       : `${villain} opened, you called from ${hero}.`
   const extra = potType === 'multiway' ? ' A third player also came along.' : ''
-  return `${preflop}${extra} It's on you postflop, no bet in front of you yet. Check, bet small, or bet big?`
+  const streetNote = boardSize > 3 ? ` Action checks through to ${streetName(boardSize)}.` : ''
+  return `${preflop}${extra}${streetNote} It's on you, no bet in front of you yet. Check, bet small, or bet big?`
 }
 
 const DEPTH_HINTS: Record<PostflopDepth, string> = {
@@ -131,6 +137,7 @@ export function BetSizingTrainer() {
   const [scenario, setScenario] = useState<Scenario>(() => newScenario(include3BetPots, includeMultiway))
   const [answer, setAnswer] = useState<SizingAction | null>(null)
   const [score, setScore] = useState({ correct: 0, total: 0 })
+  const [showRange, setShowRange] = useState(false)
 
   // Villain is assumed to have a plausible continuing range — only used
   // here to estimate hero's raw equity edge, not to model a real read.
@@ -145,9 +152,16 @@ export function BetSizingTrainer() {
       equity: equityResult.equity,
       correctAnswer: actionForEquity(equityResult.equity),
       categoryName: CATEGORY_NAMES[category.category],
+      finalRange: ranges[0],
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scenario])
+
+  function villainChartClass(label: string): string {
+    if (analysis.finalRange.has(label)) return 'bg-rose-600/80 text-white'
+    if (scenario.context.villainPreflopRange.has(label)) return 'bg-slate-600/70 text-slate-300'
+    return 'bg-slate-800 text-slate-500'
+  }
 
   const isCorrect = answer !== null && answer === analysis.correctAnswer
 
@@ -172,6 +186,7 @@ export function BetSizingTrainer() {
   function next() {
     setScenario(newScenario(include3BetPots, includeMultiway))
     setAnswer(null)
+    setShowRange(false)
   }
 
   useHotkeys({
@@ -188,7 +203,7 @@ export function BetSizingTrainer() {
   return (
     <div className="flex flex-col gap-6 items-center">
       <div className="text-slate-400 text-sm text-center max-w-sm">
-        {scenarioPrompt(scenario.potType, scenario.context)}
+        {scenarioPrompt(scenario.potType, scenario.context, scenario.board.length)}
       </div>
 
       <div className="text-slate-300">
@@ -279,6 +294,33 @@ export function BetSizingTrainer() {
             <br />
             {RATIONALE[analysis.correctAnswer]}
           </div>
+
+          <button
+            onClick={() => setShowRange((v) => !v)}
+            className="text-sm text-slate-400 underline hover:text-slate-200"
+          >
+            {showRange ? 'Hide' : 'Show'} villain's range
+          </button>
+
+          {showRange && (
+            <div className="w-full max-w-xl flex flex-col items-center gap-2 animate-fade-in">
+              <RangeGrid cellClass={villainChartClass} />
+              <div className="flex gap-4 text-xs text-slate-400 flex-wrap justify-center">
+                <span className="flex items-center gap-1">
+                  <span className="inline-block w-3 h-3 rounded-sm bg-rose-600/80" /> Continuing range
+                  (equity computed against this)
+                </span>
+                <span className="flex items-center gap-1">
+                  <span className="inline-block w-3 h-3 rounded-sm bg-slate-600/70" /> Possible preflop, not a continuing hand
+                </span>
+                <span className="flex items-center gap-1">
+                  <span className="inline-block w-3 h-3 rounded-sm bg-slate-800 border border-slate-600" />{' '}
+                  Not possible given the preflop action
+                </span>
+              </div>
+            </div>
+          )}
+
           <button
             onClick={next}
             className="px-6 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 active:scale-95 transition-transform font-semibold text-white"

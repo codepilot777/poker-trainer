@@ -19,6 +19,11 @@ import { useScenarioMix } from '../lib/settings'
 import { CardChip } from '../components/CardChip'
 import { HintBox } from '../components/HintBox'
 import { ScenarioMixToggle } from '../components/ScenarioMixToggle'
+import { RangeGrid } from '../components/RangeGrid'
+
+function streetName(boardSize: number): string {
+  return boardSize === 3 ? 'the flop' : boardSize === 4 ? 'the turn' : 'the river'
+}
 
 type PotType = 'single' | 'threeBet' | 'multiway'
 
@@ -51,19 +56,25 @@ const POT_TYPE_LABELS: Record<PotType, string> = {
   multiway: 'Multiway (3-handed)',
 }
 
-function scenarioPrompt(potType: PotType, ctx: PreflopContext): string {
+function scenarioPrompt(potType: PotType, ctx: PreflopContext, boardSize: number): string {
   const hero = seatLabel(ctx.heroPosition)
   const villain = seatLabel(ctx.villainPosition)
+  // A 4- or 5-card board with only one bet on the table means every earlier
+  // street checked through — say so, instead of implying betting we didn't model.
+  const action =
+    boardSize === 3
+      ? 'Villain bets.'
+      : `Action checks through to ${streetName(boardSize)}, where villain bets.`
   if (ctx.heroRole === 'opener') {
     const preflop =
       potType === 'threeBet'
         ? `You opened ${hero}, ${villain} 3-bet and you called.`
         : `You opened ${hero}, ${villain} called.`
     const extra = potType === 'multiway' ? ' A third player also came along.' : ''
-    return `${preflop}${extra} Villain bets. Call or fold?`
+    return `${preflop}${extra} ${action} Call or fold?`
   }
   const extra = potType === 'multiway' ? ' A third player also came along.' : ''
-  return `${villain} opened, you called from ${hero}.${extra} Villain bets. Call or fold?`
+  return `${villain} opened, you called from ${hero}.${extra} ${action} Call or fold?`
 }
 
 const DEPTH_HINTS: Record<PostflopDepth, string> = {
@@ -123,6 +134,7 @@ export function PostflopTrainer() {
   const [scenario, setScenario] = useState<Scenario>(() => newScenario(include3BetPots, includeMultiway))
   const [answer, setAnswer] = useState<'call' | 'fold' | null>(null)
   const [score, setScore] = useState({ correct: 0, total: 0 })
+  const [showRange, setShowRange] = useState(false)
 
   // Only run the (moderately expensive) Monte Carlo once per scenario.
   const analysis = useMemo(() => {
@@ -140,11 +152,18 @@ export function PostflopTrainer() {
       required,
       ev,
       tier,
+      finalRange: ranges[0],
       correctAnswer: (equityResult.equity > required ? 'call' : 'fold') as 'call' | 'fold',
       categoryName: CATEGORY_NAMES[category.category],
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scenario])
+
+  function villainChartClass(label: string): string {
+    if (analysis.finalRange.has(label)) return 'bg-rose-600/80 text-white'
+    if (scenario.context.villainPreflopRange.has(label)) return 'bg-slate-600/70 text-slate-300'
+    return 'bg-slate-800 text-slate-500'
+  }
 
   function pick(choice: 'call' | 'fold') {
     if (answer !== null) return
@@ -167,6 +186,7 @@ export function PostflopTrainer() {
   function next() {
     setScenario(newScenario(include3BetPots, includeMultiway))
     setAnswer(null)
+    setShowRange(false)
   }
 
   useHotkeys({
@@ -221,7 +241,9 @@ export function PostflopTrainer() {
         </div>
       </div>
 
-      <p className="text-slate-300 text-center max-w-sm">{scenarioPrompt(scenario.potType, scenario.context)}</p>
+      <p className="text-slate-300 text-center max-w-sm">
+        {scenarioPrompt(scenario.potType, scenario.context, scenario.board.length)}
+      </p>
 
       {answer === null && (
         <HintBox>
@@ -272,6 +294,33 @@ export function PostflopTrainer() {
             <br />
             EV of calling: ${analysis.ev.toFixed(2)}
           </div>
+
+          <button
+            onClick={() => setShowRange((v) => !v)}
+            className="text-sm text-slate-400 underline hover:text-slate-200"
+          >
+            {showRange ? 'Hide' : 'Show'} villain's range
+          </button>
+
+          {showRange && (
+            <div className="w-full max-w-xl flex flex-col items-center gap-2 animate-fade-in">
+              <RangeGrid cellClass={villainChartClass} />
+              <div className="flex gap-4 text-xs text-slate-400 flex-wrap justify-center">
+                <span className="flex items-center gap-1">
+                  <span className="inline-block w-3 h-3 rounded-sm bg-rose-600/80" /> Bets this size
+                  (equity computed against this)
+                </span>
+                <span className="flex items-center gap-1">
+                  <span className="inline-block w-3 h-3 rounded-sm bg-slate-600/70" /> Possible preflop, wouldn't bet this size
+                </span>
+                <span className="flex items-center gap-1">
+                  <span className="inline-block w-3 h-3 rounded-sm bg-slate-800 border border-slate-600" />{' '}
+                  Not possible given the preflop action
+                </span>
+              </div>
+            </div>
+          )}
+
           <button
             onClick={next}
             className="px-6 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 active:scale-95 transition-transform font-semibold text-white"
