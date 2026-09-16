@@ -7,6 +7,9 @@ import {
   writeInclude3BetPots,
   readIncludeMultiway,
   writeIncludeMultiway,
+  readStreetFocus,
+  writeStreetFocus,
+  type StreetFocus,
 } from './lib/settings'
 import { PreflopTrainer } from './modules/PreflopTrainer'
 import { FacingRaiseTrainer } from './modules/FacingRaiseTrainer'
@@ -46,6 +49,7 @@ function App() {
   const [hintsEnabled, setHintsEnabledState] = useState(() => readHintsEnabled())
   const [include3BetPots, setInclude3BetPotsState] = useState(() => readInclude3BetPots())
   const [includeMultiway, setIncludeMultiwayState] = useState(() => readIncludeMultiway())
+  const [streetFocus, setStreetFocusState] = useState<StreetFocus>(() => readStreetFocus())
 
   function setHintsEnabled(v: boolean) {
     setHintsEnabledState(v)
@@ -62,6 +66,11 @@ function App() {
     writeIncludeMultiway(v)
   }
 
+  function setStreetFocus(v: StreetFocus) {
+    setStreetFocusState(v)
+    writeStreetFocus(v)
+  }
+
   return (
     <SettingsContext.Provider
       value={{
@@ -71,6 +80,8 @@ function App() {
         setInclude3BetPots,
         includeMultiway,
         setIncludeMultiway,
+        streetFocus,
+        setStreetFocus,
       }}
     >
     <div className="min-h-screen bg-[#0f1115] text-slate-100">

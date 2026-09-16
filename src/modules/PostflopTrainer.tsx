@@ -15,7 +15,7 @@ import {
 } from '../lib/preflopContext'
 import { useHotkeys } from '../lib/useHotkeys'
 import { recordAttempt } from '../lib/progressStore'
-import { useScenarioMix } from '../lib/settings'
+import { useScenarioMix, type StreetFocus } from '../lib/settings'
 import { CardChip } from '../components/CardChip'
 import { HintBox } from '../components/HintBox'
 import { ScenarioMixToggle } from '../components/ScenarioMixToggle'
@@ -97,6 +97,13 @@ function randomPotType(include3BetPots: boolean, includeMultiway: boolean): PotT
   return options[randomInt(0, options.length - 1)]
 }
 
+function boardSizeFor(streetFocus: StreetFocus): number {
+  if (streetFocus === 'flop') return 3
+  if (streetFocus === 'turn') return 4
+  if (streetFocus === 'river') return 5
+  return [3, 4, 5][randomInt(0, 2)]
+}
+
 /**
  * Villain range(s) to estimate hero's equity against: the real preflop range
  * for this line (see preflopContext.ts), narrowed to whichever hands would
@@ -116,12 +123,12 @@ function villainRangesForScenario(
   return [primary]
 }
 
-function newScenario(include3BetPots: boolean, includeMultiway: boolean): Scenario {
+function newScenario(include3BetPots: boolean, includeMultiway: boolean, streetFocus: StreetFocus): Scenario {
   const depth = randomDepth()
   const potType = randomPotType(include3BetPots, includeMultiway)
   const context = newPreflopContext(depth, potType === 'threeBet')
   const deck = shuffle(removeCards(makeDeck(), context.heroHand))
-  const boardSize = [3, 4, 5][randomInt(0, 2)]
+  const boardSize = boardSizeFor(streetFocus)
   const board = deck.slice(0, boardSize)
   const [potMin, potMax] = POT_RANGE[depth]
   const pot = Math.round(randomInt(potMin, potMax) * POT_TYPE_MULTIPLIER[potType])
@@ -130,8 +137,10 @@ function newScenario(include3BetPots: boolean, includeMultiway: boolean): Scenar
 }
 
 export function PostflopTrainer() {
-  const { include3BetPots, includeMultiway } = useScenarioMix()
-  const [scenario, setScenario] = useState<Scenario>(() => newScenario(include3BetPots, includeMultiway))
+  const { include3BetPots, includeMultiway, streetFocus } = useScenarioMix()
+  const [scenario, setScenario] = useState<Scenario>(() =>
+    newScenario(include3BetPots, includeMultiway, streetFocus),
+  )
   const [answer, setAnswer] = useState<'call' | 'fold' | null>(null)
   const [score, setScore] = useState({ correct: 0, total: 0 })
   const [showRange, setShowRange] = useState(false)
@@ -184,7 +193,7 @@ export function PostflopTrainer() {
   }
 
   function next() {
-    setScenario(newScenario(include3BetPots, includeMultiway))
+    setScenario(newScenario(include3BetPots, includeMultiway, streetFocus))
     setAnswer(null)
     setShowRange(false)
   }
