@@ -8,11 +8,20 @@ import {
   isInDepthRange,
   type StackDepth,
 } from '../data/stackDepthRanges'
+import {
+  correctVsOpenAction,
+  isAcceptableVsOpenAction,
+  RESPONSE_AGGRO_LABEL,
+  type Vs3BetAction,
+} from '../data/vsOpenRanges'
 import { randomHandLabelWeighted } from '../lib/handGrid'
 import { RangeGrid } from '../components/RangeGrid'
 import { useHotkeys } from '../lib/useHotkeys'
 import { recordAttempt } from '../lib/progressStore'
 import { HintBox } from '../components/HintBox'
+
+type Kind = 'firstIn' | 'facingOpen'
+type Action = 'open' | 'fold' | 'call' | 'threeBet'
 
 const POSITION_HINTS: Record<Position, string> = {
   UTG: 'Earliest position — 5 players could still act behind you, so play the tightest range.',
@@ -22,10 +31,26 @@ const POSITION_HINTS: Record<Position, string> = {
   SB: "You'll be out of position postflop against everyone except the BB — wide, but not as wide as BTN.",
 }
 
-const DEPTH_HINTS: Partial<Record<StackDepth, string>> = {
+const OPENER_HINTS: Record<Position, string> = {
+  UTG: 'UTG opens with the tightest range at the table — you need a genuine hand to continue.',
+  MP: 'MP opens a little wider than UTG — you can continue with slightly more.',
+  CO: 'A CO open is moderately wide — you can defend a bit looser than vs. an early open.',
+  BTN: 'A BTN open can be very wide — you can continue with more hands, including some 3-bet bluffs.',
+  SB: "SB opens tighter than BTN despite being later — SB is out of position for the rest of the hand, so continue a bit tighter than vs. BTN.",
+}
+
+const OPEN_DEPTH_HINTS: Partial<Record<StackDepth, string>> = {
   short: 'At 20bb postflop play barely exists — favor a wide shove over a standard open.',
   medium: 'At 40bb, drop the most speculative small suited/connector hands — implied odds shrink.',
 }
+
+const RESPONSE_DEPTH_HINTS: Partial<Record<StackDepth, string>> = {
+  short: "At 20bb, villain has already effectively shoved and you're the same depth — calling and shoving over put in the same chips, so either button is correct here. The only real decision is continue or fold.",
+  medium: 'At 40bb, tighten the calling range — speculative hands lose value as implied odds shrink.',
+}
+
+// Opener must have an earlier-acting position than hero for a facing-open round.
+const OPENER_POSITIONS: Position[] = ['UTG', 'MP', 'CO', 'BTN', 'SB']
 
 function randomPosition(): Position {
   return POSITIONS[Math.floor(Math.random() * POSITIONS.length)]
@@ -36,61 +61,113 @@ function randomDepth(): StackDepth {
 }
 
 interface Round {
+  kind: Kind
+  /** Hero's position for firstIn; the responder's implied seat isn't tracked for facingOpen. */
   position: Position
   hand: string
   depth: StackDepth
 }
 
 function newRound(): Round {
-  return { position: randomPosition(), hand: randomHandLabelWeighted(), depth: randomDepth() }
+  const kind: Kind = Math.random() < 0.5 ? 'firstIn' : 'facingOpen'
+  const position = kind === 'firstIn' ? randomPosition() : OPENER_POSITIONS[Math.floor(Math.random() * OPENER_POSITIONS.length)]
+  return { kind, position, hand: randomHandLabelWeighted(), depth: randomDepth() }
 }
 
 export function PreflopTrainer() {
   const [round, setRound] = useState<Round>(() => newRound())
-  const [answer, setAnswer] = useState<'open' | 'fold' | null>(null)
+  const [answer, setAnswer] = useState<Action | null>(null)
   const [score, setScore] = useState({ correct: 0, total: 0 })
   const [showChart, setShowChart] = useState(false)
 
   const openLabel = STACK_DEPTH_ACTION_LABEL[round.depth]
-  const correctAnswer = isInDepthRange(round.depth, round.position, round.hand) ? 'open' : 'fold'
-  const correctLabel = correctAnswer === 'open' ? openLabel : 'Fold'
-  const isCorrect = answer !== null && answer === correctAnswer
+  const aggroLabel = RESPONSE_AGGRO_LABEL[round.depth]
+  const actionLabel = (a: Action): string =>
+    a === 'open' ? openLabel : a === 'threeBet' ? aggroLabel : a === 'call' ? 'Call' : 'Fold'
 
-  function pick(choice: 'open' | 'fold') {
+  const correctAnswer: Action =
+    round.kind === 'firstIn'
+      ? isInDepthRange(round.depth, round.position, round.hand)
+        ? 'open'
+        : 'fold'
+      : (correctVsOpenAction(round.depth, round.position, round.hand) as Action)
+
+  const isCorrect =
+    answer !== null &&
+    (round.kind === 'firstIn'
+      ? answer === correctAnswer
+      : isAcceptableVsOpenAction(round.depth, round.position, round.hand, answer as Vs3BetAction))
+
+  // At 20bb facing an open, call/threeBet are the same chip-EV action — show both.
+  const correctAnswerLabel =
+    round.kind === 'facingOpen' && round.depth === 'short' && correctAnswer !== 'fold'
+      ? `Call or ${aggroLabel}`
+      : actionLabel(correctAnswer)
+
+  function pick(choice: Action) {
     if (answer !== null) return
-    const wasCorrect = choice === correctAnswer
+    const wasCorrect =
+      round.kind === 'firstIn'
+        ? choice === correctAnswer
+        : isAcceptableVsOpenAction(round.depth, round.position, round.hand, choice as Vs3BetAction)
     setAnswer(choice)
     setScore((s) => ({
       correct: s.correct + (wasCorrect ? 1 : 0),
       total: s.total + 1,
     }))
-    const choiceLabel = choice === 'open' ? openLabel : 'Fold'
-    recordAttempt({
-      module: 'preflop',
-      moduleLabel: 'Preflop Ranges',
-      correct: wasCorrect,
-      group: round.position,
-      detail: `${round.hand} at ${round.position}, ${STACK_DEPTH_LABELS[round.depth]} — you: ${choiceLabel}, correct: ${correctLabel}`,
-    })
+    if (round.kind === 'firstIn') {
+      recordAttempt({
+        module: 'preflop',
+        moduleLabel: 'Preflop: Open/Fold',
+        correct: wasCorrect,
+        group: round.position,
+        detail: `${round.hand} at ${round.position}, ${STACK_DEPTH_LABELS[round.depth]} — you: ${actionLabel(choice)}, correct: ${actionLabel(correctAnswer)}`,
+      })
+    } else {
+      recordAttempt({
+        module: 'facingraise',
+        moduleLabel: 'Preflop: vs. a Raise',
+        correct: wasCorrect,
+        group: round.position,
+        detail: `${round.hand} vs ${round.position} open, ${STACK_DEPTH_LABELS[round.depth]} — you: ${actionLabel(choice)}, correct: ${correctAnswerLabel}`,
+      })
+    }
   }
 
   function next() {
     setRound(newRound())
     setAnswer(null)
+    setShowChart(false)
   }
 
   useHotkeys({
-    r: () => pick('open'),
+    r: () => pick(round.kind === 'firstIn' ? 'open' : 'threeBet'),
     f: () => pick('fold'),
+    c: () => pick('call'),
     enter: () => answer !== null && next(),
     ' ': () => answer !== null && next(),
   })
 
+  function chartClass(label: string): string {
+    if (round.kind === 'firstIn') {
+      return STACK_DEPTH_RANGES[round.depth][round.position].has(label)
+        ? 'bg-emerald-600/80 text-white'
+        : 'bg-slate-800 text-slate-500'
+    }
+    const action = correctVsOpenAction(round.depth, round.position, label)
+    // At 20bb call/threeBet are the same action, so one merged "continue" color.
+    if (round.depth === 'short') return action === 'fold' ? 'bg-slate-800 text-slate-500' : 'bg-amber-600/80 text-white'
+    if (action === 'threeBet') return 'bg-amber-600/80 text-white'
+    if (action === 'call') return 'bg-emerald-600/80 text-white'
+    return 'bg-slate-800 text-slate-500'
+  }
+
   return (
     <div className="flex flex-col gap-6 items-center">
       <div className="text-slate-400 text-sm text-center max-w-sm">
-        You're first to act, everyone else folds to you, at {STACK_DEPTH_LABELS[round.depth]}.
-        Should you {openLabel.toLowerCase()} or fold?
+        {round.kind === 'firstIn'
+          ? `You're first to act, everyone else folds to you, at ${STACK_DEPTH_LABELS[round.depth]}. Should you ${openLabel.toLowerCase()} or fold?`
+          : `${POSITION_NAMES[round.position]} opens, action folds to you, at ${STACK_DEPTH_LABELS[round.depth]}. Fold, call, or ${aggroLabel.toLowerCase()}?`}
       </div>
 
       <div className="text-slate-300">
@@ -103,10 +180,11 @@ export function PreflopTrainer() {
 
       <div className="flex flex-col items-center gap-2">
         <div className="text-lg text-slate-400">
-          {POSITION_NAMES[round.position]} · {STACK_DEPTH_LABELS[round.depth]}
+          {round.kind === 'firstIn' ? POSITION_NAMES[round.position] : `vs. ${POSITION_NAMES[round.position]} open`} ·{' '}
+          {STACK_DEPTH_LABELS[round.depth]}
         </div>
         <div
-          key={round.hand + round.position + round.depth}
+          key={round.hand + round.kind + round.position + round.depth}
           className="animate-pop-in text-6xl font-bold tracking-wide bg-slate-800 rounded-xl px-10 py-6 border border-slate-700"
         >
           {round.hand}
@@ -115,25 +193,56 @@ export function PreflopTrainer() {
 
       {answer === null && (
         <HintBox>
-          {POSITION_HINTS[round.position]}
-          {DEPTH_HINTS[round.depth] ? ` ${DEPTH_HINTS[round.depth]}` : ''}
+          {round.kind === 'firstIn' ? POSITION_HINTS[round.position] : OPENER_HINTS[round.position]}
+          {round.kind === 'firstIn'
+            ? OPEN_DEPTH_HINTS[round.depth]
+              ? ` ${OPEN_DEPTH_HINTS[round.depth]}`
+              : ''
+            : RESPONSE_DEPTH_HINTS[round.depth]
+              ? ` ${RESPONSE_DEPTH_HINTS[round.depth]}`
+              : ''}
         </HintBox>
       )}
 
       {answer === null ? (
         <div className="flex gap-4">
-          <button
-            onClick={() => pick('open')}
-            className="px-6 py-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 active:scale-95 transition-transform font-semibold text-white"
-          >
-            {openLabel} <span className="text-emerald-200 text-xs font-normal">(R)</span>
-          </button>
-          <button
-            onClick={() => pick('fold')}
-            className="px-6 py-3 rounded-lg bg-rose-600 hover:bg-rose-500 active:scale-95 transition-transform font-semibold text-white"
-          >
-            Fold <span className="text-rose-200 text-xs font-normal">(F)</span>
-          </button>
+          {round.kind === 'firstIn' ? (
+            <>
+              <button
+                onClick={() => pick('open')}
+                className="px-6 py-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 active:scale-95 transition-transform font-semibold text-white"
+              >
+                {openLabel} <span className="text-emerald-200 text-xs font-normal">(R)</span>
+              </button>
+              <button
+                onClick={() => pick('fold')}
+                className="px-6 py-3 rounded-lg bg-rose-600 hover:bg-rose-500 active:scale-95 transition-transform font-semibold text-white"
+              >
+                Fold <span className="text-rose-200 text-xs font-normal">(F)</span>
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                onClick={() => pick('fold')}
+                className="px-5 py-3 rounded-lg bg-rose-600 hover:bg-rose-500 active:scale-95 transition-transform font-semibold text-white"
+              >
+                Fold <span className="text-rose-200 text-xs font-normal">(F)</span>
+              </button>
+              <button
+                onClick={() => pick('call')}
+                className="px-5 py-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 active:scale-95 transition-transform font-semibold text-white"
+              >
+                Call <span className="text-emerald-200 text-xs font-normal">(C)</span>
+              </button>
+              <button
+                onClick={() => pick('threeBet')}
+                className="px-5 py-3 rounded-lg bg-amber-600 hover:bg-amber-500 active:scale-95 transition-transform font-semibold text-white"
+              >
+                {aggroLabel} <span className="text-amber-100 text-xs font-normal">(R)</span>
+              </button>
+            </>
+          )}
         </div>
       ) : (
         <div className="flex flex-col items-center gap-4 animate-fade-in">
@@ -143,7 +252,7 @@ export function PreflopTrainer() {
               isCorrect ? 'bg-emerald-600/20 text-emerald-400' : 'bg-rose-600/20 text-rose-400',
             ].join(' ')}
           >
-            {isCorrect ? 'Correct!' : `Not quite — correct answer is ${correctLabel.toUpperCase()}`}
+            {isCorrect ? 'Correct!' : `Not quite — correct answer is ${correctAnswerLabel.toUpperCase()}`}
           </div>
           <button
             onClick={next}
@@ -158,25 +267,48 @@ export function PreflopTrainer() {
         onClick={() => setShowChart((v) => !v)}
         className="text-sm text-slate-400 underline hover:text-slate-200"
       >
-        {showChart ? 'Hide' : 'Show'} {POSITION_NAMES[round.position]} · {STACK_DEPTH_LABELS[round.depth]} chart
+        {showChart ? 'Hide' : 'Show'}{' '}
+        {round.kind === 'firstIn' ? POSITION_NAMES[round.position] : `vs. ${POSITION_NAMES[round.position]}`} ·{' '}
+        {STACK_DEPTH_LABELS[round.depth]} chart
       </button>
 
       {showChart && (
-        <div className="w-full max-w-xl animate-fade-in">
-          <RangeGrid inRange={STACK_DEPTH_RANGES[round.depth][round.position]} highlight={round.hand} />
+        <div className="w-full max-w-xl flex flex-col items-center gap-2 animate-fade-in">
+          <RangeGrid cellClass={chartClass} highlight={round.hand} />
+          {round.kind === 'facingOpen' && (
+            <div className="flex gap-4 text-xs text-slate-400">
+              {round.depth === 'short' ? (
+                <span className="flex items-center gap-1">
+                  <span className="inline-block w-3 h-3 rounded-sm bg-amber-600/80" /> Call or Shove
+                </span>
+              ) : (
+                <>
+                  <span className="flex items-center gap-1">
+                    <span className="inline-block w-3 h-3 rounded-sm bg-amber-600/80" /> {aggroLabel}
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <span className="inline-block w-3 h-3 rounded-sm bg-emerald-600/80" /> Call
+                  </span>
+                </>
+              )}
+              <span className="flex items-center gap-1">
+                <span className="inline-block w-3 h-3 rounded-sm bg-slate-800 border border-slate-600" />{' '}
+                Fold
+              </span>
+            </div>
+          )}
         </div>
       )}
 
       <p className="text-xs text-slate-500 max-w-md text-center">
         100bb and 40bb ranges are hand-authored approximations for practicing
-        recognition, not solved GTO output. The 20bb shove range is
-        different: a chip-EV Nash equilibrium actually computed for this app
-        (fictitious play over Monte Carlo simulation, no ICM/antes) — which
-        is why it's tighter than many "practical" push/fold charts built to
-        exploit opponents who fold too much, rather than to be unexploitable
-        against a perfect caller. At 40bb, the most speculative hands (small
-        suited connectors, weak suited aces) lose value as implied odds
-        shrink, so ranges tighten from the 100bb baseline.
+        recognition, not solved GTO output. The 20bb boundary is different: a
+        chip-EV Nash equilibrium actually computed for this app (fictitious
+        play over Monte Carlo simulation, no ICM/antes) — which is why it's
+        tighter than many "practical" push/fold charts built to exploit
+        opponents who fold too much, rather than to be unexploitable against
+        a perfect caller. At 20bb facing an open, Call and {aggroLabel} are
+        graded as equally correct since they're the same all-in action.
       </p>
     </div>
   )

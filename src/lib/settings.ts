@@ -3,9 +3,6 @@ import { createContext, useContext } from 'react'
 const HINTS_KEY = 'poker-trainer-hints-enabled'
 const INCLUDE_3BET_KEY = 'poker-trainer-include-3bet-pots'
 const INCLUDE_MULTIWAY_KEY = 'poker-trainer-include-multiway'
-const STREET_FOCUS_KEY = 'poker-trainer-street-focus'
-
-export type StreetFocus = 'mixed' | 'flop' | 'turn' | 'river'
 
 export function readHintsEnabled(): boolean {
   try {
@@ -25,8 +22,8 @@ export function writeHintsEnabled(enabled: boolean) {
 }
 
 /**
- * Both default off: existing single-raised, heads-up postflop scenarios
- * stay the only kind until a user opts into the wider mix.
+ * Both default off: existing single-raised, heads-up flop scenarios stay
+ * the only kind until a user opts into the wider mix.
  */
 export function readInclude3BetPots(): boolean {
   try {
@@ -60,23 +57,6 @@ export function writeIncludeMultiway(enabled: boolean) {
   }
 }
 
-export function readStreetFocus(): StreetFocus {
-  try {
-    const raw = localStorage.getItem(STREET_FOCUS_KEY)
-    return raw === 'flop' || raw === 'turn' || raw === 'river' ? raw : 'mixed'
-  } catch {
-    return 'mixed'
-  }
-}
-
-export function writeStreetFocus(focus: StreetFocus) {
-  try {
-    localStorage.setItem(STREET_FOCUS_KEY, focus)
-  } catch {
-    // localStorage unavailable — setting just won't persist.
-  }
-}
-
 export const SettingsContext = createContext<{
   hintsEnabled: boolean
   setHintsEnabled: (v: boolean) => void
@@ -84,8 +64,6 @@ export const SettingsContext = createContext<{
   setInclude3BetPots: (v: boolean) => void
   includeMultiway: boolean
   setIncludeMultiway: (v: boolean) => void
-  streetFocus: StreetFocus
-  setStreetFocus: (v: StreetFocus) => void
 }>({
   hintsEnabled: true,
   setHintsEnabled: () => {},
@@ -93,15 +71,13 @@ export const SettingsContext = createContext<{
   setInclude3BetPots: () => {},
   includeMultiway: false,
   setIncludeMultiway: () => {},
-  streetFocus: 'mixed',
-  setStreetFocus: () => {},
 })
 
 export function useHints() {
   return useContext(SettingsContext)
 }
 
-/** Shared by the drills that vary their pot type (Postflop Decisions, Bet Sizing). */
+/** Shared by the Flop drill's two sub-scenarios: which pot types can appear. */
 export function useScenarioMix() {
   return useContext(SettingsContext)
 }

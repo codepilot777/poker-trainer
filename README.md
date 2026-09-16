@@ -1,34 +1,51 @@
 # Poker Trainer
 
-A web app for drilling five core No-Limit Hold'em skills, plus a study tool
-and a reference:
+A web app for drilling No-Limit Hold'em decisions across two streets, plus a
+study tool and a reference. Practice is deliberately kept to two drills —
+**Preflop** and **Flop** — each covering the full realistic action set for
+that street, rather than splitting each situation into its own separate
+drill:
 
-- **Preflop Ranges** — shown a random starting hand, position, and stack
-  depth (100bb deep, 40bb medium, or 20bb short/push-fold), decide whether
-  to open (raise, or shove at 20bb) or fold. Depth changes the correct
-  range: shorter stacks widen from fold equity instead of tightening.
-  Reveal the full 13x13 range chart for the position + depth at any time.
-- **Facing a Raise** — shown an opener's position, stack depth, and a
-  random hand, decide fold, call, or 3-bet (shove at 20bb), checked
-  against response ranges grouped by opener tier (UTG/MP, CO, BTN/SB) and
-  by depth — at 20bb a flat call barely exists, it's mostly shove-or-fold.
-- **Pot Odds & EV** — given a pot size and a bet to call, calculate the
-  minimum equity needed to call, or the EV of calling given an assumed
-  equity.
-- **Postflop Decisions** — shown a hole cards + board scenario and a bet to
-  call, decide call or fold. Each scenario has a real preflop line behind
-  it (you opened and got called/3-bet, or you called someone's open, using
-  the same position/depth range data as Preflop Ranges and Facing a Raise)
-  — villain's range starts from their actual range for that line, then
-  narrows to whichever of those hands would bet this size on this board
-  (wider for small bets, tighter for big bets). Your equity vs. that range
-  is estimated via Monte Carlo simulation and compared to the pot odds
-  required to call.
-- **Bet Sizing** — no bet in front of you: check, bet small (33% pot), or
-  bet big (75% pot)? Same preflop-line-aware villain range as Postflop
-  Decisions (narrowed to a plausible continuing range, since hero hasn't
-  bet yet), checked against an equity-bucket heuristic (bigger edge →
-  bigger value bet, thin edge → small bet, no edge → check).
+- **Preflop** — two scenario types, mixed randomly:
+  - *First to act*: shown a random starting hand, position, and stack depth
+    (100bb deep, 40bb medium, or 20bb short/push-fold), decide whether to
+    open (raise, or shove at 20bb) or fold. Depth changes the correct range:
+    shorter stacks widen from fold equity instead of tightening.
+  - *Facing an open*: shown an opener's exact position, stack depth, and a
+    random hand, decide fold, call, or 3-bet (shove at 20bb), checked
+    against response ranges for that exact opener position and depth — at
+    20bb a flat call barely exists, it's mostly shove-or-fold, so call and
+    shove are graded as equally correct (same all-in chip-EV action).
+
+  Reveal the full 13x13 range chart for the current position + depth at any
+  time.
+
+- **Flop** — two scenario types, mixed randomly, both with a real preflop
+  line behind them (you opened and got called/3-bet, or you called someone
+  else's open, using the same position/depth range data as the Preflop
+  drill) so villain's range going into the flop is chip-consistent with what
+  actually happened preflop, not just picked at random:
+  - *Facing a bet*: shown hole cards, a 3-card board, and a bet to call,
+    decide fold, call, or raise. Villain's range narrows from their real
+    preflop range to whichever of those hands would bet this size on this
+    board (wider for small bets, tighter for big bets). Your equity vs. that
+    range is estimated via Monte Carlo simulation; EV of folding, calling,
+    and raising (to a fixed 3x the bet, against a simplified model of which
+    of villain's hands continue vs. fold to a raise) are compared to find
+    the best action. This EV comparison — and the pot-odds-vs-equity idea
+    behind the call/fold half of it — is the same concept the old "Pot Odds
+    & EV" drill isolated on its own; here it's folded into this drill's
+    feedback instead of being a separate quiz.
+  - *First to act*: no bet in front of you yet — check, bet small (33%
+    pot), or bet big (75% pot)? Same preflop-line-aware villain range,
+    narrowed to a plausible continuing range since hero hasn't bet, checked
+    against an equity-bucket heuristic (bigger edge → bigger value bet,
+    thin edge → small bet, no edge → check).
+
+  Optional toggles (off by default) mix in 3-bet pots and multiway pots
+  alongside the default single-raised heads-up pot, so villain's range and
+  pot sizing adjust accordingly. The Flop drill only offers 100bb/40bb
+  depths, since postflop play doesn't really exist at 20bb push/fold.
 
 ## Range Explorer
 
@@ -73,9 +90,11 @@ evaluation and equity estimation runs client-side.
 
 ## Keyboard shortcuts
 
-Each drill supports single-key answers for faster reps: R/F for raise/fold,
-F/C/R for fold/call/3-bet, C/F for call/fold, X/S/B for check/bet small/bet
-big, and Enter (or Space) to advance to the next question once answered.
+Each drill supports single-key answers for faster reps: R/F for open (or
+shove)/fold, F/C/R for fold/call/3-bet (Preflop facing an open), C/R/F for
+call/raise/fold (Flop facing a bet), X/S/B for check/bet small/bet big (Flop
+first to act), and Enter (or Space) to advance to the next question once
+answered.
 
 ## Offline use
 
@@ -86,11 +105,16 @@ install icon) for an app-like experience.
 
 ## Notes on accuracy
 
-Most preflop, 3-bet, and postflop villain ranges are hand-authored
+Most preflop, 3-bet, and flop villain ranges are hand-authored
 approximations meant for practicing decision-making concepts (range
-recognition, pot odds vs. equity), not a solved GTO/solver output. Postflop
-equity is estimated against a fixed range tier picked from bet size, not a
-read on a specific opponent's actual tendencies.
+recognition, pot odds vs. equity), not a solved GTO/solver output. Flop
+equity is estimated against a range narrowed by bet size, not a read on a
+specific opponent's actual tendencies. The raise EV model on the "facing a
+bet" scenario is a further simplification: it always sizes the raise to a
+fixed 3x the bet, and splits villain's range into "continues" vs. "folds"
+by ranking made-hand strength on the board rather than modeling a real
+re-raising/bluffing response — it's meant to build the instinct that raising
+can be better than calling, not to be a precise solved sizing.
 
 The 20bb shove ranges are the exception: they're an actually-computed
 chip-EV Nash equilibrium (fictitious play over Monte Carlo simulation using

@@ -1,16 +1,8 @@
-import { useScenarioMix, type StreetFocus } from '../lib/settings'
+import { useScenarioMix } from '../lib/settings'
 
-const STREET_OPTIONS: { id: StreetFocus; label: string }[] = [
-  { id: 'mixed', label: 'Mixed' },
-  { id: 'flop', label: 'Flop' },
-  { id: 'turn', label: 'Turn' },
-  { id: 'river', label: 'River' },
-]
-
-/** Shared by Postflop Decisions and Bet Sizing: which pot types can appear, and which street. */
+/** Shared by the Flop drill's two sub-scenarios: which pot types can appear. */
 export function ScenarioMixToggle() {
-  const { include3BetPots, setInclude3BetPots, includeMultiway, setIncludeMultiway, streetFocus, setStreetFocus } =
-    useScenarioMix()
+  const { include3BetPots, setInclude3BetPots, includeMultiway, setIncludeMultiway } = useScenarioMix()
 
   function chipClass(active: boolean): string {
     return [
@@ -22,27 +14,7 @@ export function ScenarioMixToggle() {
   }
 
   return (
-    <div className="flex flex-col items-center gap-2.5">
-      <div className="flex flex-col items-center gap-1">
-        <div className="flex flex-wrap justify-center gap-2">
-          {STREET_OPTIONS.map((s) => (
-            <button
-              key={s.id}
-              onClick={() => setStreetFocus(s.id)}
-              className={chipClass(streetFocus === s.id)}
-              title={s.id === 'mixed' ? 'Random street each scenario' : `Only deal ${s.label.toLowerCase()} scenarios`}
-            >
-              {s.label}
-            </button>
-          ))}
-        </div>
-        <div className="text-xs text-slate-500 text-center max-w-sm">
-          {streetFocus === 'mixed'
-            ? 'Board runs to a random street each scenario.'
-            : `Drilling ${streetFocus} spots only — earlier streets (if any) checked through to get there.`}
-        </div>
-      </div>
-
+    <div className="flex flex-col items-center gap-1.5">
       <div className="flex flex-wrap justify-center gap-2">
         <button
           onClick={() => setInclude3BetPots(!include3BetPots)}
@@ -59,7 +31,7 @@ export function ScenarioMixToggle() {
           {includeMultiway ? '✓ ' : ''}Multiway pots
         </button>
       </div>
-      <div className="text-xs text-slate-500 text-center max-w-sm -mt-1.5">
+      <div className="text-xs text-slate-500 text-center max-w-sm">
         {include3BetPots || includeMultiway
           ? 'Scenarios will be mixed in with single-raised, heads-up pots.'
           : 'Off by default — every scenario is a single-raised, heads-up pot.'}

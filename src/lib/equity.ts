@@ -230,6 +230,52 @@ export function estimateRangeVsRangeEquity(
   }
 }
 
+export interface RangeSplit {
+  continuing: Set<string>
+  folding: Set<string>
+  continueProb: number
+  foldProb: number
+}
+
+/**
+ * Splits a range into the hands that would continue facing aggression vs.
+ * fold, ranked by made-hand strength on this exact board (one representative
+ * combo per label, since suit-blocker nuance within a label isn't worth the
+ * complexity here) — a "continues with the top X% of range" model, not a
+ * solved response. continueFraction is a fraction of real combo weight
+ * (pairs=6, suited=4, offsuit=12), not a fraction of labels.
+ */
+export function splitRangeByStrength(
+  range: Set<string>,
+  board: Card[],
+  deadCards: Card[],
+  continueFraction: number,
+): RangeSplit {
+  const scored: { label: string; combo: [Card, Card]; weight: number }[] = []
+  for (const label of range) {
+    const combos = expandRangeToCombos(new Set([label]), deadCards)
+    if (combos.length === 0) continue
+    scored.push({ label, combo: combos[0], weight: combos.length })
+  }
+  const totalWeight = scored.reduce((sum, s) => sum + s.weight, 0)
+  if (totalWeight === 0) return { continuing: new Set(), folding: new Set(), continueProb: 0, foldProb: 1 }
+
+  scored.sort((a, b) => compareHands([...b.combo, ...board], [...a.combo, ...board]))
+  const targetWeight = totalWeight * continueFraction
+  let acc = 0
+  const continuing = new Set<string>()
+  const folding = new Set<string>()
+  for (const s of scored) {
+    if (acc < targetWeight) {
+      continuing.add(s.label)
+      acc += s.weight
+    } else {
+      folding.add(s.label)
+    }
+  }
+  return { continuing, folding, continueProb: acc / totalWeight, foldProb: 1 - acc / totalWeight }
+}
+
 export function potOdds(betToCall: number, potBeforeCall: number): number {
   // required equity to break even on a call
   return betToCall / (potBeforeCall + betToCall)

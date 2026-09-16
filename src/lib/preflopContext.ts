@@ -36,7 +36,7 @@ function randomCombo(range: Set<string>): [Card, Card] {
  * actually computed/modeled against — called or 3-bet) or called someone
  * else's open. Hero's hand is sampled from their real range for that role;
  * villain's range is their real preflop range for that spot. Both reuse the
- * exact data the Preflop Ranges / Facing a Raise drills use, so "what
+ * exact data the Preflop drill uses, so "what
  * happened preflop" actually constrains the postflop scenario instead of
  * being disconnected from it.
  */

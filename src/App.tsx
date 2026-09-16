@@ -7,35 +7,18 @@ import {
   writeInclude3BetPots,
   readIncludeMultiway,
   writeIncludeMultiway,
-  readStreetFocus,
-  writeStreetFocus,
-  type StreetFocus,
 } from './lib/settings'
 import { PreflopTrainer } from './modules/PreflopTrainer'
-import { FacingRaiseTrainer } from './modules/FacingRaiseTrainer'
-import { PotOddsTrainer } from './modules/PotOddsTrainer'
-import { PostflopTrainer } from './modules/PostflopTrainer'
-import { BetSizingTrainer } from './modules/BetSizingTrainer'
+import { FlopTrainer } from './modules/FlopTrainer'
 import { RangeExplorer } from './modules/RangeExplorer'
 import { LearnView } from './modules/LearnView'
 import { ProgressView } from './modules/ProgressView'
 
-type Tab =
-  | 'preflop'
-  | 'facingraise'
-  | 'potodds'
-  | 'postflop'
-  | 'betsizing'
-  | 'rangeexplorer'
-  | 'learn'
-  | 'progress'
+type Tab = 'preflop' | 'flop' | 'rangeexplorer' | 'learn' | 'progress'
 
 const DRILL_TABS: { id: Tab; label: string; shortLabel: string }[] = [
-  { id: 'preflop', label: 'Preflop Ranges', shortLabel: 'Preflop' },
-  { id: 'facingraise', label: 'Facing a Raise', shortLabel: 'vs. Raise' },
-  { id: 'potodds', label: 'Pot Odds & EV', shortLabel: 'Pot Odds' },
-  { id: 'postflop', label: 'Postflop Decisions', shortLabel: 'Postflop' },
-  { id: 'betsizing', label: 'Bet Sizing', shortLabel: 'Sizing' },
+  { id: 'preflop', label: 'Preflop', shortLabel: 'Preflop' },
+  { id: 'flop', label: 'Flop', shortLabel: 'Flop' },
 ]
 
 const TOOL_TABS: { id: Tab; label: string; icon: string }[] = [
@@ -49,7 +32,6 @@ function App() {
   const [hintsEnabled, setHintsEnabledState] = useState(() => readHintsEnabled())
   const [include3BetPots, setInclude3BetPotsState] = useState(() => readInclude3BetPots())
   const [includeMultiway, setIncludeMultiwayState] = useState(() => readIncludeMultiway())
-  const [streetFocus, setStreetFocusState] = useState<StreetFocus>(() => readStreetFocus())
 
   function setHintsEnabled(v: boolean) {
     setHintsEnabledState(v)
@@ -66,11 +48,6 @@ function App() {
     writeIncludeMultiway(v)
   }
 
-  function setStreetFocus(v: StreetFocus) {
-    setStreetFocusState(v)
-    writeStreetFocus(v)
-  }
-
   return (
     <SettingsContext.Provider
       value={{
@@ -80,8 +57,6 @@ function App() {
         setInclude3BetPots,
         includeMultiway,
         setIncludeMultiway,
-        streetFocus,
-        setStreetFocus,
       }}
     >
     <div className="min-h-screen bg-[#0f1115] text-slate-100">
@@ -101,8 +76,8 @@ function App() {
           </button>
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">♠ Poker Trainer</h1>
           <p className="text-slate-400 mt-1 text-sm sm:text-base">
-            Drill ranges, bet sizing, and pot odds — plus a range explorer and
-            quick lessons
+            Drill preflop and flop decisions — plus a range explorer and quick
+            lessons
           </p>
         </header>
 
@@ -149,10 +124,7 @@ function App() {
 
         <main key={tab} className="animate-fade-in">
           {tab === 'preflop' && <PreflopTrainer />}
-          {tab === 'facingraise' && <FacingRaiseTrainer />}
-          {tab === 'potodds' && <PotOddsTrainer />}
-          {tab === 'postflop' && <PostflopTrainer />}
-          {tab === 'betsizing' && <BetSizingTrainer />}
+          {tab === 'flop' && <FlopTrainer />}
           {tab === 'rangeexplorer' && <RangeExplorer />}
           {tab === 'learn' && <LearnView />}
           {tab === 'progress' && <ProgressView />}
