@@ -21,6 +21,7 @@ import { randomHandLabelWeighted } from '../lib/handGrid'
 import { RangeGrid } from '../components/RangeGrid'
 import { useHotkeys } from '../lib/useHotkeys'
 import { recordAttempt } from '../lib/progressStore'
+import { useTeachingMode } from '../lib/settings'
 import { HintBox } from '../components/HintBox'
 
 type Kind = 'firstIn' | 'facingOpen'
@@ -77,7 +78,13 @@ function newRound(): Round {
   return { kind, position, hand: randomHandLabelWeighted(), depth: randomDepth() }
 }
 
+function villainOpenRangeClass(depth: StackDepth, position: Position): (label: string) => string {
+  return (label: string) =>
+    STACK_DEPTH_RANGES[depth][position].has(label) ? 'bg-rose-600/80 text-white' : 'bg-slate-800 text-slate-500'
+}
+
 export function PreflopTrainer() {
+  const { teachingMode } = useTeachingMode()
   const [round, setRound] = useState<Round>(() => newRound())
   const [answer, setAnswer] = useState<Action | null>(null)
   const [score, setScore] = useState({ correct: 0, total: 0 })
@@ -218,6 +225,25 @@ export function PreflopTrainer() {
               ? ` ${RESPONSE_DEPTH_HINTS[round.depth]}`
               : ''}
         </HintBox>
+      )}
+
+      {teachingMode && round.kind === 'facingOpen' && answer === null && (
+        <div className="w-full max-w-xl flex flex-col items-center gap-2 animate-fade-in">
+          <div className="text-xs text-slate-400">
+            {POSITION_NAMES[round.position]}'s opening range at {STACK_DEPTH_LABELS[round.depth]} — this is what
+            villain could actually be holding:
+          </div>
+          <RangeGrid cellClass={villainOpenRangeClass(round.depth, round.position)} highlight={round.hand} />
+          <div className="flex gap-4 text-xs text-slate-400">
+            <span className="flex items-center gap-1">
+              <span className="inline-block w-3 h-3 rounded-sm bg-rose-600/80" /> In villain's range
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="inline-block w-3 h-3 rounded-sm bg-slate-800 border border-slate-600" /> Not in
+              range
+            </span>
+          </div>
+        </div>
       )}
 
       {answer === null ? (

@@ -21,7 +21,7 @@ import {
 } from '../lib/preflopContext'
 import { useHotkeys } from '../lib/useHotkeys'
 import { recordAttempt } from '../lib/progressStore'
-import { useScenarioMix } from '../lib/settings'
+import { useScenarioMix, useTeachingMode } from '../lib/settings'
 import { CardChip } from '../components/CardChip'
 import { HintBox } from '../components/HintBox'
 import { ScenarioMixToggle } from '../components/ScenarioMixToggle'
@@ -207,6 +207,7 @@ type Analysis =
 
 export function FlopTrainer() {
   const { include3BetPots, includeMultiway } = useScenarioMix()
+  const { teachingMode } = useTeachingMode()
   const [scenario, setScenario] = useState<Scenario>(() => newScenario(include3BetPots, includeMultiway))
   const [answer, setAnswer] = useState<FlopAction | null>(null)
   const [score, setScore] = useState({ correct: 0, total: 0 })
@@ -397,6 +398,28 @@ export function FlopTrainer() {
             </>
           )}
         </HintBox>
+      )}
+
+      {teachingMode && answer === null && (
+        <div className="w-full max-w-xl flex flex-col items-center gap-2 animate-fade-in">
+          <div className="text-xs text-slate-400">
+            Villain's range, narrowed from their preflop line{scenario.kind === 'facingBet' ? ' and this bet size' : ''}:
+          </div>
+          <RangeGrid cellClass={villainChartClass} />
+          <div className="flex gap-4 text-xs text-slate-400 flex-wrap justify-center">
+            <span className="flex items-center gap-1">
+              <span className="inline-block w-3 h-3 rounded-sm bg-rose-600/80" />{' '}
+              {scenario.kind === 'facingBet' ? 'Bets this size' : 'Continuing range'}
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="inline-block w-3 h-3 rounded-sm bg-slate-600/70" /> Possible preflop, not this
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="inline-block w-3 h-3 rounded-sm bg-slate-800 border border-slate-600" />{' '}
+              Not possible given the preflop action
+            </span>
+          </div>
+        </div>
       )}
 
       {answer === null ? (

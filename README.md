@@ -54,6 +54,20 @@ drill:
   pot sizing adjust accordingly. The Flop drill only offers 100bb/40bb
   depths, since postflop play doesn't really exist at 20bb push/fold.
 
+## Teaching mode
+
+Both drills default to deciding blind: you see position/hand/board/bet, pick
+an action, and only then find out villain's range. A **🎓 Teach** toggle in
+the header (off by default, persisted in `localStorage`) flips that around —
+villain's range is shown *before* you act instead of after: the opener's
+real opening range on Preflop's "facing an open" scenarios, or the
+preflop-and-bet-size-narrowed range on either Flop scenario. It only reveals
+the range, not the equity numbers or the correct action — the decision
+itself is still yours to make, just with the range reasoning laid out up
+front instead of tested blind. Toggle it on to study how a range narrows
+street by street; toggle it off to drill the harder, more realistic skill of
+deciding under uncertainty.
+
 ## Range Explorer
 
 A study tool (not a quiz) for comparing two ranges' equity against each

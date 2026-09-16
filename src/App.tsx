@@ -7,6 +7,8 @@ import {
   writeInclude3BetPots,
   readIncludeMultiway,
   writeIncludeMultiway,
+  readTeachingMode,
+  writeTeachingMode,
 } from './lib/settings'
 import { PreflopTrainer } from './modules/PreflopTrainer'
 import { FlopTrainer } from './modules/FlopTrainer'
@@ -32,6 +34,7 @@ function App() {
   const [hintsEnabled, setHintsEnabledState] = useState(() => readHintsEnabled())
   const [include3BetPots, setInclude3BetPotsState] = useState(() => readInclude3BetPots())
   const [includeMultiway, setIncludeMultiwayState] = useState(() => readIncludeMultiway())
+  const [teachingMode, setTeachingModeState] = useState(() => readTeachingMode())
 
   function setHintsEnabled(v: boolean) {
     setHintsEnabledState(v)
@@ -48,6 +51,11 @@ function App() {
     writeIncludeMultiway(v)
   }
 
+  function setTeachingMode(v: boolean) {
+    setTeachingModeState(v)
+    writeTeachingMode(v)
+  }
+
   return (
     <SettingsContext.Provider
       value={{
@@ -57,11 +65,25 @@ function App() {
         setInclude3BetPots,
         includeMultiway,
         setIncludeMultiway,
+        teachingMode,
+        setTeachingMode,
       }}
     >
     <div className="min-h-screen bg-[#0f1115] text-slate-100">
       <div className="max-w-4xl mx-auto px-4 py-5 sm:py-8 flex flex-col gap-5 sm:gap-8">
         <header className="text-center relative">
+          <button
+            onClick={() => setTeachingMode(!teachingMode)}
+            className={[
+              'absolute left-0 top-0 flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium border transition-all active:scale-95',
+              teachingMode
+                ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/40'
+                : 'bg-transparent text-slate-500 border-slate-700 hover:text-slate-300',
+            ].join(' ')}
+            title="Show villain's range before you decide, instead of after"
+          >
+            🎓 Teach {teachingMode ? 'On' : 'Off'}
+          </button>
           <button
             onClick={() => setHintsEnabled(!hintsEnabled)}
             className={[

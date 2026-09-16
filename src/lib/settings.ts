@@ -3,6 +3,7 @@ import { createContext, useContext } from 'react'
 const HINTS_KEY = 'poker-trainer-hints-enabled'
 const INCLUDE_3BET_KEY = 'poker-trainer-include-3bet-pots'
 const INCLUDE_MULTIWAY_KEY = 'poker-trainer-include-multiway'
+const TEACHING_MODE_KEY = 'poker-trainer-teaching-mode'
 
 export function readHintsEnabled(): boolean {
   try {
@@ -57,6 +58,28 @@ export function writeIncludeMultiway(enabled: boolean) {
   }
 }
 
+/**
+ * Off by default: the app's default flow is deciding blind, then checking
+ * villain's range afterward. Teaching mode flips that — villain's range is
+ * shown up front, before you act — for building intuition about range
+ * reasoning rather than drilling the under-uncertainty decision itself.
+ */
+export function readTeachingMode(): boolean {
+  try {
+    return localStorage.getItem(TEACHING_MODE_KEY) === 'true'
+  } catch {
+    return false
+  }
+}
+
+export function writeTeachingMode(enabled: boolean) {
+  try {
+    localStorage.setItem(TEACHING_MODE_KEY, String(enabled))
+  } catch {
+    // localStorage unavailable — setting just won't persist.
+  }
+}
+
 export const SettingsContext = createContext<{
   hintsEnabled: boolean
   setHintsEnabled: (v: boolean) => void
@@ -64,6 +87,8 @@ export const SettingsContext = createContext<{
   setInclude3BetPots: (v: boolean) => void
   includeMultiway: boolean
   setIncludeMultiway: (v: boolean) => void
+  teachingMode: boolean
+  setTeachingMode: (v: boolean) => void
 }>({
   hintsEnabled: true,
   setHintsEnabled: () => {},
@@ -71,6 +96,8 @@ export const SettingsContext = createContext<{
   setInclude3BetPots: () => {},
   includeMultiway: false,
   setIncludeMultiway: () => {},
+  teachingMode: false,
+  setTeachingMode: () => {},
 })
 
 export function useHints() {
@@ -79,5 +106,10 @@ export function useHints() {
 
 /** Shared by the Flop drill's two sub-scenarios: which pot types can appear. */
 export function useScenarioMix() {
+  return useContext(SettingsContext)
+}
+
+/** Shared by both drills: whether to show villain's range before deciding. */
+export function useTeachingMode() {
   return useContext(SettingsContext)
 }
