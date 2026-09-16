@@ -1,10 +1,18 @@
 import { useMemo, useState } from 'react'
 import type { Card } from '../lib/cards'
-import { cardLabel, makeDeck, shuffle } from '../lib/cards'
+import { cardLabel, makeDeck, removeCards, shuffle } from '../lib/cards'
 import { estimateEquityVsRange, estimateEquityVsMultipleRanges, evOfCall, potOdds } from '../lib/equity'
 import { CATEGORY_NAMES, evaluateBest } from '../lib/evaluator'
 import { VILLAIN_RANGES, VILLAIN_RANGES_3BET, villainRangeForBet } from '../data/villainRanges'
-import { STACK_DEPTHS, STACK_DEPTH_LABELS, type StackDepth } from '../data/stackDepthRanges'
+import { STACK_DEPTH_LABELS } from '../data/stackDepthRanges'
+import { intersectRanges } from '../lib/rangeCombos'
+import {
+  newPreflopContext,
+  seatLabel,
+  POSTFLOP_DEPTHS,
+  type PostflopDepth,
+  type PreflopContext,
+} from '../lib/preflopContext'
 import { useHotkeys } from '../lib/useHotkeys'
 import { recordAttempt } from '../lib/progressStore'
 import { useScenarioMix } from '../lib/settings'
@@ -19,18 +27,18 @@ interface Scenario {
   board: Card[]
   pot: number
   bet: number
-  depth: StackDepth
+  depth: PostflopDepth
   potType: PotType
+  context: PreflopContext
 }
 
 // Shallower effective stacks mean less money has gone into (and can still go
 // into) the pot, so pot size scales down with depth. Bet-to-pot ratio stays
 // the same distribution regardless of depth, since that's what drives
 // villain's range tier.
-const POT_RANGE: Record<StackDepth, [number, number]> = {
+const POT_RANGE: Record<PostflopDepth, [number, number]> = {
   deep: [30, 250],
   medium: [15, 110],
-  short: [8, 55],
 }
 
 // 3-bet pots start with more preflop money in; multiway pots tend to build
@@ -43,24 +51,32 @@ const POT_TYPE_LABELS: Record<PotType, string> = {
   multiway: 'Multiway (3-handed)',
 }
 
-const POT_TYPE_PROMPT: Record<PotType, string> = {
-  single: 'Villain bets, everyone else folds to you. Call or fold?',
-  threeBet: 'Preflop, you 3-bet and villain called. Postflop, villain bets into you. Call or fold?',
-  multiway: 'Three of you saw the flop. Villain bets, and the third player is still to act behind you. Call or fold?',
+function scenarioPrompt(potType: PotType, ctx: PreflopContext): string {
+  const hero = seatLabel(ctx.heroPosition)
+  const villain = seatLabel(ctx.villainPosition)
+  if (ctx.heroRole === 'opener') {
+    const preflop =
+      potType === 'threeBet'
+        ? `You opened ${hero}, ${villain} 3-bet and you called.`
+        : `You opened ${hero}, ${villain} called.`
+    const extra = potType === 'multiway' ? ' A third player also came along.' : ''
+    return `${preflop}${extra} Villain bets. Call or fold?`
+  }
+  const extra = potType === 'multiway' ? ' A third player also came along.' : ''
+  return `${villain} opened, you called from ${hero}.${extra} Villain bets. Call or fold?`
 }
 
-const DEPTH_HINTS: Record<StackDepth, string> = {
+const DEPTH_HINTS: Record<PostflopDepth, string> = {
   deep: "At 100bb effective, a drawing hand can win extra money on later streets if it hits — real implied odds can make a call correct even a bit below the raw equity-vs-pot-odds comparison.",
   medium: "At 40bb, there's less behind to win on future streets, so implied odds add less cushion — lean closer to the raw equity comparison.",
-  short: "At 20bb effective, this is often close to your whole stack — there's barely any play left behind, so implied odds don't really apply. The raw equity comparison is the whole story.",
 }
 
 function randomInt(min: number, max: number): number {
   return Math.floor(Math.random() * (max - min + 1)) + min
 }
 
-function randomDepth(): StackDepth {
-  return STACK_DEPTHS[Math.floor(Math.random() * STACK_DEPTHS.length)]
+function randomDepth(): PostflopDepth {
+  return POSTFLOP_DEPTHS[Math.floor(Math.random() * POSTFLOP_DEPTHS.length)]
 }
 
 function randomPotType(include3BetPots: boolean, includeMultiway: boolean): PotType {
@@ -70,24 +86,36 @@ function randomPotType(include3BetPots: boolean, includeMultiway: boolean): PotT
   return options[randomInt(0, options.length - 1)]
 }
 
-/** Villain range(s) to estimate hero's equity against for this scenario. */
-function villainRangesForScenario(potType: PotType, tier: 'wide' | 'medium' | 'tight'): Set<string>[] {
-  if (potType === 'threeBet') return [VILLAIN_RANGES_3BET[tier]]
-  if (potType === 'multiway') return [VILLAIN_RANGES[tier], VILLAIN_RANGES[tier]]
-  return [VILLAIN_RANGES[tier]]
+/**
+ * Villain range(s) to estimate hero's equity against: the real preflop range
+ * for this line (see preflopContext.ts), narrowed to whichever hands would
+ * actually bet this size on this board (the existing bet-size-tier
+ * heuristic) — combining "what happened preflop" with "what this bet means"
+ * instead of assuming either alone. Multiway keeps a second, un-narrowed
+ * opponent, since there's no real preflop line for who that extra player is.
+ */
+function villainRangesForScenario(
+  potType: PotType,
+  preflopRange: Set<string>,
+  tier: 'wide' | 'medium' | 'tight',
+): Set<string>[] {
+  const betTierRange = potType === 'threeBet' ? VILLAIN_RANGES_3BET[tier] : VILLAIN_RANGES[tier]
+  const primary = intersectRanges(preflopRange, betTierRange)
+  if (potType === 'multiway') return [primary, VILLAIN_RANGES[tier]]
+  return [primary]
 }
 
 function newScenario(include3BetPots: boolean, includeMultiway: boolean): Scenario {
-  const deck = shuffle(makeDeck())
-  const hero: [Card, Card] = [deck[0], deck[1]]
-  const boardSize = [3, 4, 5][randomInt(0, 2)]
-  const board = deck.slice(2, 2 + boardSize)
   const depth = randomDepth()
   const potType = randomPotType(include3BetPots, includeMultiway)
+  const context = newPreflopContext(depth, potType === 'threeBet')
+  const deck = shuffle(removeCards(makeDeck(), context.heroHand))
+  const boardSize = [3, 4, 5][randomInt(0, 2)]
+  const board = deck.slice(0, boardSize)
   const [potMin, potMax] = POT_RANGE[depth]
   const pot = Math.round(randomInt(potMin, potMax) * POT_TYPE_MULTIPLIER[potType])
   const bet = Math.round(pot * (randomInt(30, 110) / 100))
-  return { hero, board, pot, bet, depth, potType }
+  return { hero: context.heroHand, board, pot, bet, depth, potType, context }
 }
 
 export function PostflopTrainer() {
@@ -99,7 +127,7 @@ export function PostflopTrainer() {
   // Only run the (moderately expensive) Monte Carlo once per scenario.
   const analysis = useMemo(() => {
     const tier = villainRangeForBet(scenario.bet, scenario.pot)
-    const ranges = villainRangesForScenario(scenario.potType, tier)
+    const ranges = villainRangesForScenario(scenario.potType, scenario.context.villainPreflopRange, tier)
     const equityResult =
       ranges.length > 1
         ? estimateEquityVsMultipleRanges(scenario.hero, scenario.board, ranges, 700)
@@ -132,7 +160,7 @@ export function PostflopTrainer() {
       moduleLabel: 'Postflop Decisions',
       correct: wasCorrect,
       group: analysis.tier,
-      detail: `${analysis.categoryName} on ${boardStr} vs ${analysis.tier} range, ${STACK_DEPTH_LABELS[scenario.depth]}, ${POT_TYPE_LABELS[scenario.potType]} — you: ${choice}, correct: ${analysis.correctAnswer}`,
+      detail: `${analysis.categoryName} on ${boardStr} vs ${analysis.tier} range, ${STACK_DEPTH_LABELS[scenario.depth]}, ${POT_TYPE_LABELS[scenario.potType]} (${seatLabel(scenario.context.heroPosition)} vs ${seatLabel(scenario.context.villainPosition)}) — you: ${choice}, correct: ${analysis.correctAnswer}`,
     })
   }
 
@@ -193,7 +221,7 @@ export function PostflopTrainer() {
         </div>
       </div>
 
-      <p className="text-slate-300 text-center max-w-sm">{POT_TYPE_PROMPT[scenario.potType]}</p>
+      <p className="text-slate-300 text-center max-w-sm">{scenarioPrompt(scenario.potType, scenario.context)}</p>
 
       {answer === null && (
         <HintBox>
@@ -237,8 +265,8 @@ export function PostflopTrainer() {
             <br />
             Estimated equity vs.{' '}
             {scenario.potType === 'multiway'
-              ? `both opponents' ${analysis.tier} ranges`
-              : `villain's ${analysis.tier} betting range`}
+              ? `both opponents' ${analysis.tier}-consistent ranges`
+              : `villain's ${analysis.tier}-consistent range`}
             {scenario.potType === 'threeBet' ? ' (3-bet pot)' : ''}:{' '}
             {(analysis.equity * 100).toFixed(1)}% (required: {(analysis.required * 100).toFixed(1)}%)
             <br />
@@ -254,16 +282,13 @@ export function PostflopTrainer() {
       )}
 
       <p className="text-xs text-slate-500 max-w-md text-center">
-        Equity is estimated via simulation against an approximate villain
-        range (wider for small bets, tighter/stronger for big bets) rather
-        than a specific read — still a simplification, but closer to a real
-        decision than assuming any two cards. Pot size scales down with
-        shallower effective stacks; the equity-vs-pot-odds math doesn't
-        depend on depth, but how much you should trust implied odds beyond
-        it does. 3-bet pots use a tighter villain range (they already
-        continued facing a 3-bet); multiway pots estimate your equity
-        against two opponents' ranges at once, which is why the same hand
-        often needs more equity to be a good call multiway than heads-up.
+        Villain's range starts from their real preflop range for this exact
+        line (the same data the Preflop Ranges / Facing a Raise drills use),
+        then narrows to whichever of those hands would actually bet this
+        size on this board (wider for small bets, tighter/stronger for big
+        bets) — history and bet size together, not either alone. Postflop
+        decisions need postflop play to exist, so this drill only offers
+        100bb/40bb, not 20bb push/fold depth.
       </p>
     </div>
   )

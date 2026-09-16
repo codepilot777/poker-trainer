@@ -16,13 +16,19 @@ and a reference:
   minimum equity needed to call, or the EV of calling given an assumed
   equity.
 - **Postflop Decisions** — shown a hole cards + board scenario and a bet to
-  call, decide call or fold. Your equity is estimated via Monte Carlo
-  simulation against an approximate villain betting range (wider for small
-  bets, tighter for big bets) and compared to the pot odds required to call.
+  call, decide call or fold. Each scenario has a real preflop line behind
+  it (you opened and got called/3-bet, or you called someone's open, using
+  the same position/depth range data as Preflop Ranges and Facing a Raise)
+  — villain's range starts from their actual range for that line, then
+  narrows to whichever of those hands would bet this size on this board
+  (wider for small bets, tighter for big bets). Your equity vs. that range
+  is estimated via Monte Carlo simulation and compared to the pot odds
+  required to call.
 - **Bet Sizing** — no bet in front of you: check, bet small (33% pot), or
-  bet big (75% pot)? Checked against an equity-bucket heuristic (bigger
-  edge → bigger value bet, thin edge → small bet, no edge → check) against
-  an approximate opponent continuing range.
+  bet big (75% pot)? Same preflop-line-aware villain range as Postflop
+  Decisions (narrowed to a plausible continuing range, since hero hasn't
+  bet yet), checked against an equity-bucket heuristic (bigger edge →
+  bigger value bet, thin edge → small bet, no edge → check).
 
 ## Range Explorer
 

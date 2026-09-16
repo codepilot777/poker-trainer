@@ -65,6 +65,13 @@ export function expandRangeToCombos(range: Set<string>, deadCards: Card[]): [Car
   return combos
 }
 
+/** Hands present in both ranges — e.g. narrowing a preflop range by a postflop bet-size tier. */
+export function intersectRanges(a: Set<string>, b: Set<string>): Set<string> {
+  const out = new Set<string>()
+  for (const label of a) if (b.has(label)) out.add(label)
+  return out
+}
+
 /** True if two combos share a card (can't both be dealt in the same hand). */
 export function comboOverlaps(a: [Card, Card], b: [Card, Card]): boolean {
   return (

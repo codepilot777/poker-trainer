@@ -1,10 +1,18 @@
 import { useMemo, useState } from 'react'
 import type { Card } from '../lib/cards'
-import { cardLabel, makeDeck, shuffle } from '../lib/cards'
+import { cardLabel, makeDeck, removeCards, shuffle } from '../lib/cards'
 import { estimateEquityVsRange, estimateEquityVsMultipleRanges } from '../lib/equity'
 import { CATEGORY_NAMES, evaluateBest } from '../lib/evaluator'
 import { VILLAIN_RANGES, VILLAIN_RANGES_3BET } from '../data/villainRanges'
-import { STACK_DEPTHS, STACK_DEPTH_LABELS, type StackDepth } from '../data/stackDepthRanges'
+import { STACK_DEPTH_LABELS } from '../data/stackDepthRanges'
+import { intersectRanges } from '../lib/rangeCombos'
+import {
+  newPreflopContext,
+  seatLabel,
+  POSTFLOP_DEPTHS,
+  type PostflopDepth,
+  type PreflopContext,
+} from '../lib/preflopContext'
 import { useHotkeys } from '../lib/useHotkeys'
 import { recordAttempt } from '../lib/progressStore'
 import { useScenarioMix } from '../lib/settings'
@@ -30,10 +38,9 @@ type PotType = 'single' | 'threeBet' | 'multiway'
 
 // Shallower effective stacks mean less money has gone into (and can still go
 // into) the pot, so pot size scales down with depth.
-const POT_RANGE: Record<StackDepth, [number, number]> = {
+const POT_RANGE: Record<PostflopDepth, [number, number]> = {
   deep: [30, 250],
   medium: [15, 110],
-  short: [8, 55],
 }
 
 // 3-bet pots start with more preflop money in; multiway pots tend to build
@@ -46,32 +53,39 @@ const POT_TYPE_LABELS: Record<PotType, string> = {
   multiway: 'Multiway (3-handed)',
 }
 
-const POT_TYPE_PROMPT: Record<PotType, string> = {
-  single: "You're first to act, no bet in front of you. Check, bet small, or bet big?",
-  threeBet: "Preflop, you 3-bet and villain called. It's on you postflop, no bet in front of you yet. Check, bet small, or bet big?",
-  multiway: "Three of you saw the flop. It's on you, no bet in front of you yet, and one player is still to act behind you. Check, bet small, or bet big?",
+function scenarioPrompt(potType: PotType, ctx: PreflopContext): string {
+  const hero = seatLabel(ctx.heroPosition)
+  const villain = seatLabel(ctx.villainPosition)
+  const preflop =
+    ctx.heroRole === 'opener'
+      ? potType === 'threeBet'
+        ? `You opened ${hero}, ${villain} 3-bet and you called.`
+        : `You opened ${hero}, ${villain} called.`
+      : `${villain} opened, you called from ${hero}.`
+  const extra = potType === 'multiway' ? ' A third player also came along.' : ''
+  return `${preflop}${extra} It's on you postflop, no bet in front of you yet. Check, bet small, or bet big?`
 }
 
-const DEPTH_HINTS: Record<StackDepth, string> = {
+const DEPTH_HINTS: Record<PostflopDepth, string> = {
   deep: "At 100bb effective, there's plenty of stack left behind to build a big pot across multiple streets — thin value bets and pot-control lines are worth more.",
   medium: 'At 40bb, the stack-to-pot ratio is shrinking — sizing gets simpler, with less room for a multi-street plan.',
-  short: 'At 20bb effective, the stack-to-pot ratio is tiny — sizing barely matters beyond big-or-check, since one more bet can put the rest of your stack in anyway.',
 }
 
 interface Scenario {
   hero: [Card, Card]
   board: Card[]
   pot: number
-  depth: StackDepth
+  depth: PostflopDepth
   potType: PotType
+  context: PreflopContext
 }
 
 function randomInt(min: number, max: number): number {
   return Math.floor(Math.random() * (max - min + 1)) + min
 }
 
-function randomDepth(): StackDepth {
-  return STACK_DEPTHS[Math.floor(Math.random() * STACK_DEPTHS.length)]
+function randomDepth(): PostflopDepth {
+  return POSTFLOP_DEPTHS[Math.floor(Math.random() * POSTFLOP_DEPTHS.length)]
 }
 
 function randomPotType(include3BetPots: boolean, includeMultiway: boolean): PotType {
@@ -81,23 +95,29 @@ function randomPotType(include3BetPots: boolean, includeMultiway: boolean): PotT
   return options[randomInt(0, options.length - 1)]
 }
 
-/** Villain range(s) used to estimate hero's raw equity edge for this scenario. */
-function villainRangesForScenario(potType: PotType): Set<string>[] {
-  if (potType === 'threeBet') return [VILLAIN_RANGES_3BET.medium]
-  if (potType === 'multiway') return [VILLAIN_RANGES.medium, VILLAIN_RANGES.medium]
-  return [VILLAIN_RANGES.medium]
+/**
+ * Villain's continuing range: their real preflop range for this line,
+ * narrowed to a plausible "medium" continuing range (hero hasn't bet yet,
+ * so there's no bet size to read — this is just used to estimate hero's
+ * raw equity edge, not to model a real read).
+ */
+function villainRangesForScenario(potType: PotType, preflopRange: Set<string>): Set<string>[] {
+  const tierRange = potType === 'threeBet' ? VILLAIN_RANGES_3BET.medium : VILLAIN_RANGES.medium
+  const primary = intersectRanges(preflopRange, tierRange)
+  if (potType === 'multiway') return [primary, VILLAIN_RANGES.medium]
+  return [primary]
 }
 
 function newScenario(include3BetPots: boolean, includeMultiway: boolean): Scenario {
-  const deck = shuffle(makeDeck())
-  const hero: [Card, Card] = [deck[0], deck[1]]
-  const boardSize = [3, 4, 5][randomInt(0, 2)]
-  const board = deck.slice(2, 2 + boardSize)
   const depth = randomDepth()
   const potType = randomPotType(include3BetPots, includeMultiway)
+  const context = newPreflopContext(depth, potType === 'threeBet')
+  const deck = shuffle(removeCards(makeDeck(), context.heroHand))
+  const boardSize = [3, 4, 5][randomInt(0, 2)]
+  const board = deck.slice(0, boardSize)
   const [potMin, potMax] = POT_RANGE[depth]
   const pot = Math.round(randomInt(potMin, potMax) * POT_TYPE_MULTIPLIER[potType])
-  return { hero, board, pot, depth, potType }
+  return { hero: context.heroHand, board, pot, depth, potType, context }
 }
 
 function actionForEquity(equity: number): SizingAction {
@@ -115,7 +135,7 @@ export function BetSizingTrainer() {
   // Villain is assumed to have a plausible continuing range — only used
   // here to estimate hero's raw equity edge, not to model a real read.
   const analysis = useMemo(() => {
-    const ranges = villainRangesForScenario(scenario.potType)
+    const ranges = villainRangesForScenario(scenario.potType, scenario.context.villainPreflopRange)
     const equityResult =
       ranges.length > 1
         ? estimateEquityVsMultipleRanges(scenario.hero, scenario.board, ranges, 700)
@@ -145,7 +165,7 @@ export function BetSizingTrainer() {
       moduleLabel: 'Bet Sizing',
       correct: wasCorrect,
       group: ACTION_LABEL[analysis.correctAnswer],
-      detail: `${analysis.categoryName} on ${boardStr}, ${STACK_DEPTH_LABELS[scenario.depth]}, ${POT_TYPE_LABELS[scenario.potType]} — you: ${ACTION_LABEL[choice]}, correct: ${ACTION_LABEL[analysis.correctAnswer]}`,
+      detail: `${analysis.categoryName} on ${boardStr}, ${STACK_DEPTH_LABELS[scenario.depth]}, ${POT_TYPE_LABELS[scenario.potType]} (${seatLabel(scenario.context.heroPosition)} vs ${seatLabel(scenario.context.villainPosition)}) — you: ${ACTION_LABEL[choice]}, correct: ${ACTION_LABEL[analysis.correctAnswer]}`,
     })
   }
 
@@ -168,7 +188,7 @@ export function BetSizingTrainer() {
   return (
     <div className="flex flex-col gap-6 items-center">
       <div className="text-slate-400 text-sm text-center max-w-sm">
-        {POT_TYPE_PROMPT[scenario.potType]}
+        {scenarioPrompt(scenario.potType, scenario.context)}
       </div>
 
       <div className="text-slate-300">
@@ -270,14 +290,14 @@ export function BetSizingTrainer() {
 
       <p className="text-xs text-slate-500 max-w-md text-center">
         A simplified equity-bucket heuristic (≥65% equity → bet big, ≥45% →
-        bet small, else check) against an approximate opponent range — not a
-        solved sizing strategy, which also weighs blockers, board texture,
-        and bluff-to-value ratios. Pot size scales down with shallower
-        effective stacks; the equity thresholds stay the same, but a low
-        stack-to-pot ratio leaves less room for sizing to matter. Multiway
-        pots estimate equity against two opponents at once, which is why
-        the same hand often needs to check or bet smaller than it would
-        heads-up.
+        bet small, else check) against villain's real preflop range for this
+        line (same data as Preflop Ranges / Facing a Raise), not a solved
+        sizing strategy — that also weighs blockers, board texture, and
+        bluff-to-value ratios. Postflop decisions need postflop play to
+        exist, so this drill only offers 100bb/40bb, not 20bb push/fold
+        depth. Multiway pots estimate equity against two opponents at once,
+        which is why the same hand often needs to check or bet smaller than
+        it would heads-up.
       </p>
     </div>
   )
