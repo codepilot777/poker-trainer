@@ -68,6 +68,19 @@ front instead of tested blind. Toggle it on to study how a range narrows
 street by street; toggle it off to drill the harder, more realistic skill of
 deciding under uncertainty.
 
+Teaching mode also unlocks a "balanced range (advanced)" panel on Flop's
+first-to-act scenarios (an extra collapsed toggle, so it doesn't clutter the
+default view) — a worked illustration of constructing a polarized betting
+range for hero's *whole* range on this exact board, not just the one dealt
+hand: the strongest hands (a fixed 30% cutoff by hand strength) bet for
+value, the weakest hands fill a bluff quota sized by the standard
+bet/(pot+2×bet) formula so a villain calling a bluff-catcher is
+mathematically indifferent, and everything in between checks. It's a
+teaching illustration of the value/bluff ratio concept, not a solved
+range — real solves size the value cutoff from the board's specific range
+and nut advantage rather than a constant, and pick bluffs partly by which
+combos block villain's calling range, not just by raw weakness.
+
 ## Range Explorer
 
 A study tool (not a quiz) for comparing two ranges' equity against each
@@ -147,12 +160,13 @@ stack for every seat, no ante, blinds abstracted to a flat 1.5bb dead-money
 pot, and each of the five shove positions solved as an independent subgame
 rather than one fully joint equilibrium.
 
-Mixed strategies and balanced bluffing frequencies aren't modeled in
-general — every scenario grades toward a single best-EV action (or, at
-20bb, two actions that are actually the same chip-EV decision). The one
-deliberate exception is the small hand-picked boundary-hand set in the
-Preflop drill described above; the Flop drill doesn't have an equivalent,
-since building a genuinely balanced bet/check or bluff/value range would
-mean grading a whole range's composition rather than one scenario at a
-time — a bigger step than this app's per-hand approximations are set up
-for.
+Mixed strategies and balanced bluffing frequencies aren't part of grading —
+every scenario is still graded toward a single best-EV action (or, at 20bb,
+two actions that are actually the same chip-EV decision), and the Preflop
+drill's small hand-picked boundary-hand set is the only mix that's actually
+graded as correct either way. Flop's "balanced range" teaching-mode panel
+(described above) goes further into the concept but deliberately stays
+ungraded and view-only — it illustrates one bet size's value/bluff/check
+split for hero's whole range on one board, which is a fundamentally
+different (and much smaller) problem than solving a real joint equilibrium
+across bet sizes, streets, and both players' strategies at once.

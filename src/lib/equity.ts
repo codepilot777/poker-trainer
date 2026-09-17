@@ -276,6 +276,83 @@ export function splitRangeByStrength(
   return { continuing, folding, continueProb: acc / totalWeight, foldProb: 1 - acc / totalWeight }
 }
 
+export interface BalancedRangeResult {
+  value: Set<string>
+  bluff: Set<string>
+  giveUp: Set<string>
+  valueFraction: number // fraction of hero's whole range, by combo weight
+  bluffFraction: number // fraction of hero's whole range, by combo weight
+  /** Optimal bluff share *within the betting range* (value+bluff), from the standard bet/(pot+2*bet) formula. */
+  optimalBluffRatioWithinBets: number
+}
+
+/** Simplified: the strongest fixed fraction of hero's own range, by combo weight, bets for value. */
+const VALUE_CUTOFF_FRACTION = 0.3
+
+/**
+ * Illustrates the classic "polarized range" construction: bet your
+ * strongest hands for value, and add just enough of your very weakest
+ * hands as bluffs to make villain mathematically indifferent to calling a
+ * bluff-catcher, and check everything in between. Two simplifications on
+ * top of the value/bluff split itself: which fraction of hero's range is
+ * "value" is a fixed 30% cutoff by hand strength (real solves size this
+ * from range/nut advantage on the specific board, not a constant), and
+ * bluffs are just hero's weakest showdown-value combos (real solves prefer
+ * combos that block villain's calling range) — a teaching illustration of
+ * the ratio, not a solved range.
+ */
+export function buildBalancedRange(
+  heroRange: Set<string>,
+  board: Card[],
+  deadCards: Card[],
+  betSize: number,
+  potBeforeBet: number,
+): BalancedRangeResult {
+  const scored: { label: string; combo: [Card, Card]; weight: number }[] = []
+  for (const label of heroRange) {
+    const combos = expandRangeToCombos(new Set([label]), deadCards)
+    if (combos.length === 0) continue
+    scored.push({ label, combo: combos[0], weight: combos.length })
+  }
+  const totalWeight = scored.reduce((sum, s) => sum + s.weight, 0)
+  if (totalWeight === 0) {
+    return { value: new Set(), bluff: new Set(), giveUp: new Set(), valueFraction: 0, bluffFraction: 0, optimalBluffRatioWithinBets: 0 }
+  }
+  // Strongest first.
+  scored.sort((a, b) => compareHands([...b.combo, ...board], [...a.combo, ...board]))
+
+  const valueTargetWeight = totalWeight * VALUE_CUTOFF_FRACTION
+  const value = new Set<string>()
+  let valueWeight = 0
+  let splitIndex = 0
+  for (; splitIndex < scored.length; splitIndex++) {
+    if (valueWeight >= valueTargetWeight) break
+    value.add(scored[splitIndex].label)
+    valueWeight += scored[splitIndex].weight
+  }
+
+  const bluffRatio = betSize / (potBeforeBet + 2 * betSize)
+  const targetBluffWeight = (valueWeight * bluffRatio) / (1 - bluffRatio)
+
+  const rest = scored.slice(splitIndex) // strongest-to-weakest among the non-value remainder
+  const bluff = new Set<string>()
+  let bluffWeight = 0
+  for (let i = rest.length - 1; i >= 0 && bluffWeight < targetBluffWeight; i--) {
+    bluff.add(rest[i].label)
+    bluffWeight += rest[i].weight
+  }
+  const giveUp = new Set(rest.filter((s) => !bluff.has(s.label)).map((s) => s.label))
+
+  return {
+    value,
+    bluff,
+    giveUp,
+    valueFraction: valueWeight / totalWeight,
+    bluffFraction: bluffWeight / totalWeight,
+    optimalBluffRatioWithinBets: bluffRatio,
+  }
+}
+
 export function potOdds(betToCall: number, potBeforeCall: number): number {
   // required equity to break even on a call
   return betToCall / (potBeforeCall + betToCall)

@@ -1,16 +1,20 @@
 import { useMemo, useState } from 'react'
 import type { Card } from '../lib/cards'
-import { cardLabel, makeDeck, removeCards, shuffle } from '../lib/cards'
+import { cardLabel, handLabel, makeDeck, removeCards, shuffle } from '../lib/cards'
 import {
   estimateEquityVsRange,
   estimateEquityVsMultipleRanges,
   evOfCall,
   potOdds,
   splitRangeByStrength,
+  buildBalancedRange,
+  type BalancedRangeResult,
 } from '../lib/equity'
 import { CATEGORY_NAMES, evaluateBest } from '../lib/evaluator'
 import { VILLAIN_RANGES, VILLAIN_RANGES_3BET, villainRangeForBet } from '../data/villainRanges'
-import { STACK_DEPTH_LABELS } from '../data/stackDepthRanges'
+import { STACK_DEPTH_LABELS, STACK_DEPTH_RANGES } from '../data/stackDepthRanges'
+import { VS_OPEN_RANGES_BY_DEPTH } from '../data/vsOpenRanges'
+import type { Position } from '../data/preflopRanges'
 import { intersectRanges } from '../lib/rangeCombos'
 import {
   newPreflopContext,
@@ -163,6 +167,14 @@ function evRaise(
   return { ev, raiseTo, foldProb: split.foldProb }
 }
 
+/** Hero's own real preflop range for this line — same data as villain's, mirrored for hero's role. */
+function heroPreflopRange(depth: PostflopDepth, context: PreflopContext): Set<string> {
+  if (context.heroRole === 'opener') {
+    return STACK_DEPTH_RANGES[depth][context.heroPosition as Position]
+  }
+  return VS_OPEN_RANGES_BY_DEPTH[depth][context.villainPosition as Position].call
+}
+
 function actionForEquity(equity: number): 'check' | 'betSmall' | 'betBig' {
   if (equity >= 0.65) return 'betBig'
   if (equity >= 0.45) return 'betSmall'
@@ -212,6 +224,7 @@ export function FlopTrainer() {
   const [answer, setAnswer] = useState<FlopAction | null>(null)
   const [score, setScore] = useState({ correct: 0, total: 0 })
   const [showRange, setShowRange] = useState(false)
+  const [showBalanced, setShowBalanced] = useState(false)
 
   // Only run the (moderately expensive) Monte Carlo once per scenario.
   const analysis: Analysis = useMemo(() => {
@@ -309,6 +322,7 @@ export function FlopTrainer() {
     setScenario(newScenario(include3BetPots, includeMultiway))
     setAnswer(null)
     setShowRange(false)
+    setShowBalanced(false)
   }
 
   useHotkeys({
@@ -325,6 +339,21 @@ export function FlopTrainer() {
   const isCorrect = answer !== null && answer === analysis.correctAnswer
   const smallBet = Math.round(scenario.pot * 0.33)
   const bigBet = Math.round(scenario.pot * 0.75)
+
+  // Teaching-mode-only illustration, first-to-act only (betting your whole
+  // range is the natural spot for this) — cheap to compute (no Monte Carlo).
+  const balancedRange: BalancedRangeResult | null =
+    scenario.kind === 'firstToAct'
+      ? buildBalancedRange(heroPreflopRange(scenario.depth, scenario.context), scenario.board, scenario.hero, smallBet, scenario.pot)
+      : null
+
+  function balancedRangeChartClass(label: string): string {
+    if (!balancedRange) return 'bg-slate-800 text-slate-500'
+    if (balancedRange.value.has(label)) return 'bg-amber-600/80 text-white'
+    if (balancedRange.bluff.has(label)) return 'bg-rose-600/80 text-white'
+    if (balancedRange.giveUp.has(label)) return 'bg-slate-600/70 text-slate-300'
+    return 'bg-slate-800 text-slate-500'
+  }
 
   return (
     <div className="flex flex-col gap-6 items-center">
@@ -419,6 +448,41 @@ export function FlopTrainer() {
               Not possible given the preflop action
             </span>
           </div>
+        </div>
+      )}
+
+      {teachingMode && scenario.kind === 'firstToAct' && answer === null && balancedRange && (
+        <div className="flex flex-col items-center gap-2">
+          <button
+            onClick={() => setShowBalanced((v) => !v)}
+            className="text-sm text-slate-400 underline hover:text-slate-200"
+          >
+            {showBalanced ? 'Hide' : 'Show'} balanced range (advanced)
+          </button>
+          {showBalanced && (
+            <div className="w-full max-w-xl flex flex-col items-center gap-2 animate-fade-in">
+              <div className="text-xs text-slate-400 text-center max-w-sm">
+                A simplified illustration: if you bet ${smallBet} (33% pot) with your <em>whole</em> range here,
+                the top {(balancedRange.valueFraction * 100).toFixed(0)}% of it bets for value, your very
+                weakest hands fill a bluff quota sized so villain is mathematically indifferent to calling a
+                bluff-catcher (bluffs should make up ≈
+                {(balancedRange.optimalBluffRatioWithinBets * 100).toFixed(0)}% of the betting range — bet /
+                (pot + 2×bet)), and everything in between checks.
+              </div>
+              <RangeGrid cellClass={balancedRangeChartClass} highlight={handLabel(scenario.hero[0], scenario.hero[1])} />
+              <div className="flex gap-4 text-xs text-slate-400 flex-wrap justify-center">
+                <span className="flex items-center gap-1">
+                  <span className="inline-block w-3 h-3 rounded-sm bg-amber-600/80" /> Value bet
+                </span>
+                <span className="flex items-center gap-1">
+                  <span className="inline-block w-3 h-3 rounded-sm bg-rose-600/80" /> Bluff
+                </span>
+                <span className="flex items-center gap-1">
+                  <span className="inline-block w-3 h-3 rounded-sm bg-slate-600/70" /> Check
+                </span>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -560,7 +624,13 @@ export function FlopTrainer() {
         strongest third of range, folds the rest) — not a solved sizing or
         response. Flop decisions need flop cards to exist, so this drill
         only offers 100bb/40bb, not 20bb push/fold depth. Multiway pots
-        estimate equity against two opponents at once.
+        estimate equity against two opponents at once. Teaching mode's
+        "balanced range" panel (first-to-act only) illustrates the
+        value/bluff/check split for hero's whole range using a fixed 30%
+        value cutoff and the standard bet/(pot+2×bet) optimal-bluff-ratio
+        formula — a teaching illustration of the ratio, not a solved range
+        (real solves size the value cutoff from the board's specific range
+        and nut advantage, not a constant).
       </p>
     </div>
   )
