@@ -23,8 +23,8 @@ export function writeHintsEnabled(enabled: boolean) {
 }
 
 /**
- * Both default off: existing single-raised, heads-up flop scenarios stay
- * the only kind until a user opts into the wider mix.
+ * Both default off: existing single-raised, heads-up postflop scenarios
+ * stay the only kind until a user opts into the wider mix.
  */
 export function readInclude3BetPots(): boolean {
   try {
