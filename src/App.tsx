@@ -11,7 +11,7 @@ import {
   writeTeachingMode,
 } from './lib/settings'
 import { PreflopTrainer } from './modules/PreflopTrainer'
-import { FlopTrainer } from './modules/FlopTrainer'
+import { PostflopTrainer } from './modules/PostflopTrainer'
 import { RangeExplorer } from './modules/RangeExplorer'
 import { LearnView } from './modules/LearnView'
 import { ProgressView } from './modules/ProgressView'
@@ -20,7 +20,7 @@ type Tab = 'preflop' | 'flop' | 'rangeexplorer' | 'learn' | 'progress'
 
 const DRILL_TABS: { id: Tab; label: string; shortLabel: string }[] = [
   { id: 'preflop', label: 'Preflop', shortLabel: 'Preflop' },
-  { id: 'flop', label: 'Flop', shortLabel: 'Flop' },
+  { id: 'flop', label: 'Postflop', shortLabel: 'Postflop' },
 ]
 
 const TOOL_TABS: { id: Tab; label: string; icon: string }[] = [
@@ -98,8 +98,8 @@ function App() {
           </button>
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">♠ Poker Trainer</h1>
           <p className="text-slate-400 mt-1 text-sm sm:text-base">
-            Drill preflop and flop decisions — plus a range explorer and quick
-            lessons
+            Drill preflop and postflop decisions — plus a range explorer and
+            quick lessons
           </p>
         </header>
 
@@ -146,7 +146,7 @@ function App() {
 
         <main key={tab} className="animate-fade-in">
           {tab === 'preflop' && <PreflopTrainer />}
-          {tab === 'flop' && <FlopTrainer />}
+          {tab === 'flop' && <PostflopTrainer />}
           {tab === 'rangeexplorer' && <RangeExplorer />}
           {tab === 'learn' && <LearnView />}
           {tab === 'progress' && <ProgressView />}

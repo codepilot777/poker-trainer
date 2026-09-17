@@ -104,7 +104,7 @@ export function useHints() {
   return useContext(SettingsContext)
 }
 
-/** Shared by the Flop drill's two sub-scenarios: which pot types can appear. */
+/** Shared by the Postflop drill's two sub-scenarios: which pot types can appear. */
 export function useScenarioMix() {
   return useContext(SettingsContext)
 }

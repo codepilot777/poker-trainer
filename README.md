@@ -1,10 +1,9 @@
 # Poker Trainer
 
-A web app for drilling No-Limit Hold'em decisions across two streets, plus a
-study tool and a reference. Practice is deliberately kept to two drills —
-**Preflop** and **Flop** — each covering the full realistic action set for
-that street, rather than splitting each situation into its own separate
-drill:
+A web app for drilling No-Limit Hold'em decisions, plus a study tool and a
+reference. Practice is deliberately kept to two drills — **Preflop** and
+**Postflop** — each covering the full realistic action set for its stage of
+the hand, rather than splitting each situation into its own separate drill:
 
 - **Preflop** — two scenario types, mixed randomly:
   - *First to act*: shown a random starting hand, position, and stack depth
@@ -27,14 +26,15 @@ drill:
   Reveal the full 13x13 range chart for the current position + depth at any
   time.
 
-- **Flop** — two scenario types, mixed randomly, both with a real preflop
+- **Postflop** — two scenario types, mixed randomly, on a random street
+  (flop, turn, or river — a 3/4/5-card board), both with a real preflop
   line behind them (you opened and got called/3-bet, or you called someone
   else's open, using the same position/depth range data as the Preflop
-  drill) so villain's range going into the flop is chip-consistent with what
-  actually happened preflop, not just picked at random:
-  - *Facing a bet*: shown hole cards, a 3-card board, and a bet to call,
-    decide fold, call, or raise. Villain's range narrows from their real
-    preflop range to whichever of those hands would bet this size on this
+  drill) so villain's range is chip-consistent with what actually happened
+  preflop, not just picked at random:
+  - *Facing a bet*: shown hole cards, the board, and a bet to call, decide
+    fold, call, or raise. Villain's range narrows from their real preflop
+    range to whichever of those hands would bet this size on this exact
     board (wider for small bets, tighter for big bets). Your equity vs. that
     range is estimated via Monte Carlo simulation; EV of folding, calling,
     and raising (to a fixed 3x the bet, against a simplified model of which
@@ -49,9 +49,18 @@ drill:
     against an equity-bucket heuristic (bigger edge → bigger value bet,
     thin edge → small bet, no edge → check).
 
+  Each scenario is an independent snapshot on whichever street got picked,
+  not a hand played street by street: villain's range always narrows in one
+  step, straight from their real preflop range to whichever hands would bet
+  this size on this exact board, regardless of which street it is — it
+  doesn't simulate or track separate action on the streets before the one
+  shown. A real hand's range narrows street by street; this narrows once.
+  The river street-specific hints also account for it being the last street
+  (no more implied odds, no more multi-street planning).
+
   Optional toggles (off by default) mix in 3-bet pots and multiway pots
   alongside the default single-raised heads-up pot, so villain's range and
-  pot sizing adjust accordingly. The Flop drill only offers 100bb/40bb
+  pot sizing adjust accordingly. The Postflop drill only offers 100bb/40bb
   depths, since postflop play doesn't really exist at 20bb push/fold.
 
 ## Teaching mode
@@ -61,15 +70,15 @@ an action, and only then find out villain's range. A **🎓 Teach** toggle in
 the header (off by default, persisted in `localStorage`) flips that around —
 villain's range is shown *before* you act instead of after: the opener's
 real opening range on Preflop's "facing an open" scenarios, or the
-preflop-and-bet-size-narrowed range on either Flop scenario. It only reveals
+preflop-and-bet-size-narrowed range on either Postflop scenario. It only reveals
 the range, not the equity numbers or the correct action — the decision
 itself is still yours to make, just with the range reasoning laid out up
 front instead of tested blind. Toggle it on to study how a range narrows
 street by street; toggle it off to drill the harder, more realistic skill of
 deciding under uncertainty.
 
-Teaching mode also unlocks a "balanced range (advanced)" panel on Flop's
-first-to-act scenarios (an extra collapsed toggle, so it doesn't clutter the
+Teaching mode also unlocks a "balanced range (advanced)" panel on
+Postflop's first-to-act scenarios (an extra collapsed toggle, so it doesn't clutter the
 default view) — a worked illustration of constructing a polarized betting
 range for hero's *whole* range on this exact board, not just the one dealt
 hand: the strongest hands (a fixed 30% cutoff by hand strength) bet for
@@ -126,8 +135,8 @@ evaluation and equity estimation runs client-side.
 
 Each drill supports single-key answers for faster reps: R/F for open (or
 shove)/fold, F/C/R for fold/call/3-bet (Preflop facing an open), C/R/F for
-call/raise/fold (Flop facing a bet), X/S/B for check/bet small/bet big (Flop
-first to act), and Enter (or Space) to advance to the next question once
+call/raise/fold (Postflop facing a bet), X/S/B for check/bet small/bet big
+(Postflop first to act), and Enter (or Space) to advance to the next question once
 answered.
 
 ## Offline use
@@ -139,9 +148,9 @@ install icon) for an app-like experience.
 
 ## Notes on accuracy
 
-Most preflop, 3-bet, and flop villain ranges are hand-authored
+Most preflop, 3-bet, and postflop villain ranges are hand-authored
 approximations meant for practicing decision-making concepts (range
-recognition, pot odds vs. equity), not a solved GTO/solver output. Flop
+recognition, pot odds vs. equity), not a solved GTO/solver output. Postflop
 equity is estimated against a range narrowed by bet size, not a read on a
 specific opponent's actual tendencies. The raise EV model on the "facing a
 bet" scenario is a further simplification: it always sizes the raise to a
@@ -164,7 +173,7 @@ Mixed strategies and balanced bluffing frequencies aren't part of grading —
 every scenario is still graded toward a single best-EV action (or, at 20bb,
 two actions that are actually the same chip-EV decision), and the Preflop
 drill's small hand-picked boundary-hand set is the only mix that's actually
-graded as correct either way. Flop's "balanced range" teaching-mode panel
+graded as correct either way. Postflop's "balanced range" teaching-mode panel
 (described above) goes further into the concept but deliberately stays
 ungraded and view-only — it illustrates one bet size's value/bluff/check
 split for hero's whole range on one board, which is a fundamentally

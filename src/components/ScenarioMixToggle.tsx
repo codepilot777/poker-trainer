@@ -1,6 +1,6 @@
 import { useScenarioMix } from '../lib/settings'
 
-/** Shared by the Flop drill's two sub-scenarios: which pot types can appear. */
+/** Shared by the Postflop drill's two sub-scenarios: which pot types can appear. */
 export function ScenarioMixToggle() {
   const { include3BetPots, setInclude3BetPots, includeMultiway, setIncludeMultiway } = useScenarioMix()
 

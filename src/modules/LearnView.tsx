@@ -70,11 +70,11 @@ const SECTIONS: Section[] = [
           </li>
         </ul>
         <p className="mt-2">
-          Both drills in this app — Preflop and Flop — randomize the
-          effective stack depth per question (Flop only offers 100bb/40bb,
-          since postflop play doesn't exist at 20bb push/fold), and the
-          Range Explorer lets you compare any two ranges at any of the
-          three depths.
+          Both drills in this app — Preflop and Postflop — randomize the
+          effective stack depth per question (Postflop only offers
+          100bb/40bb, since postflop play doesn't exist at 20bb push/fold),
+          and the Range Explorer lets you compare any two ranges at any of
+          the three depths.
         </p>
       </>
     ),
@@ -147,7 +147,7 @@ const SECTIONS: Section[] = [
         </ul>
         <p className="mt-2">
           Real strategy also weighs board texture, blockers, and how often you
-          should bluff to stay balanced — this app's Flop drill uses a
+          should bluff to stay balanced — this app's Postflop drill uses a
           simplified equity-threshold version of the same idea to build the
           underlying instinct.
         </p>
