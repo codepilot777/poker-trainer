@@ -21,6 +21,7 @@ import { randomHandLabelWeighted } from '../lib/handGrid'
 import { RangeGrid } from '../components/RangeGrid'
 import { useHotkeys } from '../lib/useHotkeys'
 import { recordAttempt } from '../lib/progressStore'
+import { groupWeights, weightedPick } from '../lib/adaptivePractice'
 import { useTeachingMode } from '../lib/settings'
 import { HintBox } from '../components/HintBox'
 
@@ -56,10 +57,6 @@ const RESPONSE_DEPTH_HINTS: Partial<Record<StackDepth, string>> = {
 // Opener must have an earlier-acting position than hero for a facing-open round.
 const OPENER_POSITIONS: Position[] = ['UTG', 'MP', 'CO', 'BTN', 'SB']
 
-function randomPosition(): Position {
-  return POSITIONS[Math.floor(Math.random() * POSITIONS.length)]
-}
-
 function randomDepth(): StackDepth {
   return STACK_DEPTHS[Math.floor(Math.random() * STACK_DEPTHS.length)]
 }
@@ -72,9 +69,17 @@ interface Round {
   depth: StackDepth
 }
 
+/**
+ * Adaptive practice: positions you've missed more often (per the Progress
+ * tab's own per-position accuracy) come up more often, via groupWeights —
+ * uniform random until there's enough history to act on.
+ */
 function newRound(): Round {
   const kind: Kind = Math.random() < 0.5 ? 'firstIn' : 'facingOpen'
-  const position = kind === 'firstIn' ? randomPosition() : OPENER_POSITIONS[Math.floor(Math.random() * OPENER_POSITIONS.length)]
+  const position =
+    kind === 'firstIn'
+      ? weightedPick(POSITIONS, groupWeights('preflop'), (p) => p)
+      : weightedPick(OPENER_POSITIONS, groupWeights('facingraise'), (p) => p)
   return { kind, position, hand: randomHandLabelWeighted(), depth: randomDepth() }
 }
 

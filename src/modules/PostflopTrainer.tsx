@@ -11,7 +11,7 @@ import {
   type BalancedRangeResult,
 } from '../lib/equity'
 import { CATEGORY_NAMES, evaluateBest } from '../lib/evaluator'
-import { VILLAIN_RANGES, VILLAIN_RANGES_3BET, villainRangeForBet } from '../data/villainRanges'
+import { VILLAIN_RANGES, VILLAIN_RANGES_3BET, villainRangeForBet, type VillainRangeTier } from '../data/villainRanges'
 import { STACK_DEPTH_LABELS, STACK_DEPTH_RANGES } from '../data/stackDepthRanges'
 import { VS_OPEN_RANGES_BY_DEPTH } from '../data/vsOpenRanges'
 import type { Position } from '../data/preflopRanges'
@@ -25,6 +25,7 @@ import {
 } from '../lib/preflopContext'
 import { useHotkeys } from '../lib/useHotkeys'
 import { recordAttempt } from '../lib/progressStore'
+import { groupWeights, weightedPick } from '../lib/adaptivePractice'
 import { useScenarioMix, useTeachingMode } from '../lib/settings'
 import { CardChip } from '../components/CardChip'
 import { HintBox } from '../components/HintBox'
@@ -211,6 +212,30 @@ function actionForEquity(equity: number): 'check' | 'betSmall' | 'betBig' {
   return 'check'
 }
 
+// Bet-size fraction ranges that produce each villainRangeForBet tier — used
+// to bias which tier shows up more, without touching villainRangeForBet's
+// own thresholds.
+const TIER_FRACTION_RANGE: Record<VillainRangeTier, [number, number]> = {
+  wide: [30, 49],
+  medium: [50, 84],
+  tight: [85, 110],
+}
+const TIERS: VillainRangeTier[] = ['wide', 'medium', 'tight']
+
+/**
+ * Adaptive practice: bet-size tiers you've missed more often on the
+ * "facing a bet" scenario (per the Progress tab's own tier accuracy) come
+ * up more often, via groupWeights — uniform random until there's enough
+ * history to act on. Tier is derived purely from bet/pot ratio, so this
+ * biases which fraction sub-range the bet is drawn from rather than the
+ * tier directly.
+ */
+function randomBetFraction(): number {
+  const tier = weightedPick(TIERS, groupWeights('postflop'), (t) => t)
+  const [lo, hi] = TIER_FRACTION_RANGE[tier]
+  return randomInt(lo, hi) / 100
+}
+
 function newScenario(include3BetPots: boolean, includeMultiway: boolean): Scenario {
   const depth = randomDepth()
   const potType = randomPotType(include3BetPots, includeMultiway)
@@ -221,7 +246,7 @@ function newScenario(include3BetPots: boolean, includeMultiway: boolean): Scenar
   const kind: FlopKind = Math.random() < 0.5 ? 'facingBet' : 'firstToAct'
   const [potMin, potMax] = POT_RANGE[depth]
   const pot = Math.round(randomInt(potMin, potMax) * POT_TYPE_MULTIPLIER[potType] * STREET_POT_MULTIPLIER[street])
-  const bet = kind === 'facingBet' ? Math.round(pot * (randomInt(30, 110) / 100)) : 0
+  const bet = kind === 'facingBet' ? Math.round(pot * randomBetFraction()) : 0
   return { hero: context.heroHand, board, street, pot, bet, depth, potType, context, kind }
 }
 

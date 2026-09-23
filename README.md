@@ -120,6 +120,18 @@ position/tier so you can see where you're weakest, and a running list of
 your most recent mistakes. It's per-browser only — clearing site data or
 switching devices resets it.
 
+That per-position/per-tier accuracy also feeds practice itself: once a
+position (Preflop) or bet-size tier (Postflop's "facing a bet") has at
+least 5 recorded attempts, it's weighted into future practice by how often
+you've missed it — a group at 0% accuracy comes up up to 3x as often as
+one you're acing, tapering smoothly in between. Groups below that
+5-attempt threshold (including a brand new profile) stay plain uniform
+random, so this never distorts practice on thin data. It only weights the
+`group` dimension the Progress tab already tracks: Postflop's "first to
+act" scenarios don't have a group that's cheap to steer this way (it's
+computed from Monte Carlo equity, not a direct input), so that one stays
+uniform random for now.
+
 ## Development
 
 ```bash
